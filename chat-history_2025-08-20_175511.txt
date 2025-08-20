@@ -1,0 +1,752 @@
+system: You are an intelligent and diligent AI assistant. If images are entered, read them through to understand their contents. Please answer in the same language as the user entered if no instructions are given.
+user: 今から貼るファイルの動的モード分解の部分をpythonでコーディングしてください
+assistant: 申し訳ございませんが、まだファイルが添付されていないようです。動的モード分解（Dynamic Mode Decomposition, DMD）をPythonでコーディングするために、以下の情報を教えていただけますでしょうか：
+
+1. ファイルを添付していただけますか？
+2. どのような形式のファイルでしょうか？（PDF、画像、テキストファイルなど）
+
+ファイルが添付されるまでの間に、一般的なDMDの基本的な実装例をお示しします：
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.linalg import svd
+
+class DynamicModeDecomposition:
+    def __init__(self, data_matrix, rank=None):
+        """
+        動的モード分解（DMD）クラス
+        
+        Parameters:
+        data_matrix: データ行列 (n_features x n_timesteps)
+        rank: 使用するランク（Noneの場合は自動決定）
+        """
+        self.data = data_matrix
+        self.rank = rank
+        self.modes = None
+        self.eigenvalues = None
+        self.amplitudes = None
+        
+    def fit(self):
+        """DMDを実行"""
+        # データを X1 と X2 に分割
+        X1 = self.data[:, :-1]  # 最初から最後の一つ前まで
+        X2 = self.data[:, 1:]   # 2番目から最後まで
+        
+        # SVD分解
+        U, s, Vt = svd(X1, full_matrices=False)
+        
+        # ランクの決定
+        if self.rank is None:
+            self.rank = len(s)
+        
+        # 低ランク近似
+        U_r = U[:, :self.rank]
+        s_r = s[:self.rank]
+        V_r = Vt[:self.rank, :].T
+        
+        # A行列の近似
+        A_tilde = U_r.T @ X2 @ V_r @ np.diag(1/s_r)
+        
+        # 固有値分解
+        eigenvals, eigenvecs = np.linalg.eig(A_tilde)
+        
+        # DMDモード
+        self.modes = X2 @ V_r @ np.diag(1/s_r) @ eigenvecs
+        self.eigenvalues = eigenvals
+        
+        # 初期振幅
+        self.amplitudes = np.linalg.pinv(self.modes) @ self.data[:, 0]
+        
+        return self
+    
+    def predict(self, n_steps):
+        """将来の状態を予測"""
+        if self.modes is None:
+            raise ValueError("まずfit()を実行してください")
+        
+        # 時間発展
+        time_evolution = np.array([self.eigenvalues**i for i in range(n_steps)]).T
+        
+        # 予測
+        prediction = self.modes @ (self.amplitudes[:, np.newaxis] * time_evolution)
+        
+        return prediction
+    
+    def get_growth_rates(self):
+        """成長率を取得"""
+        return np.log(np.abs(self.eigenvalues))
+    
+    def get_frequencies(self, dt=1.0):
+        """周波数を取得"""
+        return np.imag(np.log(self.eigenvalues)) / (2 * np.pi * dt)
+
+# 使用例
+if __name__ == "__main__":
+    # サンプルデータの生成
+    t = np.linspace(0, 10, 100)
+    x1 = np.sin(2 * np.pi * 0.5 * t) * np.exp(-0.1 * t)
+    x2 = np.cos(2 * np.pi * 0.3 * t) * np.exp(-0.05 * t)
+    data = np.vstack([x1, x2])
+    
+    # DMDの実行
+    dmd = DynamicModeDecomposition(data, rank=2)
+    dmd.fit()
+    
+    # 予測
+    prediction = dmd.predict(len(t))
+    
+    # 結果の可視化
+    plt.figure(figsize=(12, 8))
+    
+    plt.subplot(2, 2, 1)
+    plt.plot(t, data[0, :], 'b-', label='Original')
+    plt.plot(t, prediction[0, :].real, 'r--', label='DMD')
+    plt.title('Component 1')
+    plt.legend()
+    
+    plt.subplot(2, 2, 2)
+    plt.plot(t, data[1, :], 'b-', label='Original')
+    plt.plot(t, prediction[1, :].real, 'r--', label='DMD')
+    plt.title('Component 2')
+    plt.legend()
+    
+    plt.subplot(2, 2, 3)
+    eigenvals = dmd.eigenvalues
+    plt.scatter(eigenvals.real, eigenvals.imag)
+    plt.xlabel('Real part')
+    plt.ylabel('Imaginary part')
+    plt.title('Eigenvalues')
+    plt.axhline(y=0, color='k', linestyle='-', alpha=0.3)
+    plt.axvline(x=0, color='k', linestyle='-', alpha=0.3)
+    
+    plt.subplot(2, 2, 4)
+    frequencies = dmd.get_frequencies()
+    growth_rates = dmd.get_growth_rates()
+    plt.scatter(frequencies, growth_rates)
+    plt.xlabel('Frequency')
+    plt.ylabel('Growth Rate')
+    plt.title('Frequency vs Growth Rate')
+    
+    plt.tight_layout()
+    plt.show()
+```
+
+ファイルを添付していただければ、その内容に基づいてより具体的で適切なコードを提供いたします。
+user: これがファイルです
+assistant: ファイルを確認しました。この論文の動的モード分解（DMD）の部分をPythonでコーディングします。論文の2.2節「Dynamic Mode Decomposition」の内容に基づいて実装します。
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.linalg import svd
+import warnings
+
+class DynamicModeDecomposition:
+    def __init__(self, rank=None, svd_rank=None):
+        """
+        動的モード分解（DMD）クラス
+        論文 "Dynamic mode decomposition of numerical and experimental data" に基づく実装
+        
+        Parameters:
+        rank: DMDで使用するランク（Noneの場合は自動決定）
+        svd_rank: SVDで使用するランク（Noneの場合は自動決定）
+        """
+        self.rank = rank
+        self.svd_rank = svd_rank
+        self.modes = None
+        self.eigenvalues = None
+        self.amplitudes = None
+        self.Phi = None  # DMDモード
+        self.omega = None  # 連続時間固有値
+        self.b = None  # 初期振幅
+        self.A_tilde = None  # 低次元線形演算子
+        
+    def fit(self, X, dt=1.0):
+        """
+        DMDアルゴリズムを実行
+        
+        Parameters:
+        X: データ行列 (n_features x n_timesteps)
+        dt: 時間刻み
+        """
+        # Step 1: データをX1とX2に分割
+        X1 = X[:, :-1]  # x_1, x_2, ..., x_{m-1}
+        X2 = X[:, 1:]   # x_2, x_3, ..., x_m
+        
+        # Step 2: X1のSVD分解
+        U, s, Vt = svd(X1, full_matrices=False)
+        
+        # Step 3: ランクの決定とtruncation
+        if self.svd_rank is None:
+            # 特異値の閾値による自動ランク決定
+            tolerance = 1e-10
+            self.svd_rank = np.sum(s > tolerance)
+        
+        r = min(self.svd_rank, len(s))
+        U_r = U[:, :r]
+        s_r = s[:r]
+        V_r = Vt[:r, :].T
+        
+        # Step 4: 低次元線形演算子A_tildeの計算
+        self.A_tilde = U_r.T @ X2 @ V_r @ np.diag(1/s_r)
+        
+        # Step 5: A_tildeの固有値分解
+        eigenvals, W = np.linalg.eig(self.A_tilde)
+        
+        # Step 6: DMDモードの計算
+        self.Phi = X2 @ V_r @ np.diag(1/s_r) @ W
+        
+        # 離散時間固有値
+        self.eigenvalues = eigenvals
+        
+        # 連続時間固有値（論文の式に基づく）
+        self.omega = np.log(eigenvals) / dt
+        
+        # Step 7: 初期振幅の計算
+        self.b = np.linalg.pinv(self.Phi) @ X[:, 0]
+        
+        # 使用するモード数の決定
+        if self.rank is None:
+            self.rank = r
+        else:
+            self.rank = min(self.rank, r)
+            
+        return self
+    
+    def predict(self, t_eval, x0=None):
+        """
+        指定された時刻での状態を予測
+        
+        Parameters:
+        t_eval: 評価時刻の配列
+        x0: 初期条件（Noneの場合は学習データの初期条件を使用）
+        
+        Returns:
+        X_pred: 予測された状態 (n_features x len(t_eval))
+        """
+        if self.Phi is None:
+            raise ValueError("まずfit()を実行してください")
+        
+        if x0 is not None:
+            # 新しい初期条件での振幅計算
+            b = np.linalg.pinv(self.Phi) @ x0
+        else:
+            b = self.b
+        
+        # 時間発展の計算
+        # x(t) = Φ * diag(b) * exp(ω*t)
+        time_evolution = np.exp(np.outer(self.omega[:self.rank], t_eval))
+        
+        # 予測
+        X_pred = self.Phi[:, :self.rank] @ (b[:self.rank, np.newaxis] * time_evolution)
+        
+        return X_pred
+    
+    def compute_dmd_solution(self, t_eval, mode_indices=None):
+        """
+        特定のモードのみを使用したDMD解を計算
+        
+        Parameters:
+        t_eval: 評価時刻
+        mode_indices: 使用するモードのインデックス（Noneの場合は全モード）
+        """
+        if mode_indices is None:
+            mode_indices = range(self.rank)
+        
+        time_evolution = np.exp(np.outer(self.omega[mode_indices], t_eval))
+        X_dmd = self.Phi[:, mode_indices] @ (self.b[mode_indices, np.newaxis] * time_evolution)
+        
+        return X_dmd
+    
+    def get_mode_properties(self):
+        """
+        各モードの特性を取得
+        
+        Returns:
+        properties: 各モードの周波数、減衰率、振幅
+        """
+        properties = {
+            'frequencies': np.imag(self.omega) / (2 * np.pi),  # Hz
+            'growth_rates': np.real(self.omega),  # 成長/減衰率
+            'amplitudes': np.abs(self.b),  # 振幅
+            'eigenvalues': self.eigenvalues,  # 離散時間固有値
+            'continuous_eigenvalues': self.omega  # 連続時間固有値
+        }
+        return properties
+    
+    def stability_analysis(self):
+        """
+        システムの安定性解析
+        """
+        stable_modes = np.abs(self.eigenvalues) < 1.0  # 離散時間での安定性
+        unstable_modes = np.abs(self.eigenvalues) >= 1.0
+        
+        return {
+            'stable_count': np.sum(stable_modes),
+            'unstable_count': np.sum(unstable_modes),
+            'stable_indices': np.where(stable_modes)[0],
+            'unstable_indices': np.where(unstable_modes)[0]
+        }
+    
+    def plot_eigenvalues(self, figsize=(10, 8)):
+        """
+        固有値をプロット
+        """
+        if self.eigenvalues is None:
+            raise ValueError("まずfit()を実行してください")
+        
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+        
+        # 離散時間固有値（単位円との関係）
+        eigenvals = self.eigenvalues[:self.rank]
+        ax1.scatter(eigenvals.real, eigenvals.imag, c='red', s=50, alpha=0.7)
+        
+        # 単位円を描画
+        theta = np.linspace(0, 2*np.pi, 100)
+        ax1.plot(np.cos(theta), np.sin(theta), 'k--', alpha=0.5, label='Unit circle')
+        
+        ax1.set_xlabel('Real part')
+        ax1.set_ylabel('Imaginary part')
+        ax1.set_title('Discrete-time Eigenvalues')
+        ax1.grid(True, alpha=0.3)
+        ax1.legend()
+        ax1.axis('equal')
+        
+        # 連続時間固有値
+        omega_vals = self.omega[:self.rank]
+        ax2.scatter(omega_vals.real, omega_vals.imag, c='blue', s=50, alpha=0.7)
+        ax2.axvline(x=0, color='k', linestyle='--', alpha=0.5)
+        ax2.axhline(y=0, color='k', linestyle='--', alpha=0.5)
+        
+        ax2.set_xlabel('Real part (Growth rate)')
+        ax2.set_ylabel('Imaginary part (Frequency)')
+        ax2.set_title('Continuous-time Eigenvalues')
+        ax2.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        return fig
+    
+    def plot_modes(self, mode_indices=None, figsize=(12, 8)):
+        """
+        DMDモードをプロット
+        """
+        if self.Phi is None:
+            raise ValueError("まずfit()を実行してください")
+        
+        if mode_indices is None:
+            mode_indices = range(min(6, self.rank))  # 最大6モードまで表示
+        
+        n_modes = len(mode_indices)
+        n_cols = min(3, n_modes)
+        n_rows = (n_modes + n_cols - 1) // n_cols
+        
+        fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
+        if n_modes == 1:
+            axes = [axes]
+        elif n_rows == 1:
+            axes = axes.reshape(1, -1)
+        
+        for i, mode_idx in enumerate(mode_indices):
+            row = i // n_cols
+            col = i % n_cols
+            
+            if n_rows > 1:
+                ax = axes[row, col]
+            else:
+                ax = axes[col] if n_cols > 1 else axes[0]
+            
+            mode = self.Phi[:, mode_idx]
+            ax.plot(mode.real, 'b-', label='Real', linewidth=2)
+            ax.plot(mode.imag, 'r--', label='Imaginary', linewidth=2)
+            
+            freq = np.imag(self.omega[mode_idx]) / (2 * np.pi)
+            growth = np.real(self.omega[mode_idx])
+            
+            ax.set_title(f'Mode {mode_idx+1}\nf={freq:.3f} Hz, λ={growth:.3f}')
+            ax.set_xlabel('Spatial index')
+            ax.set_ylabel('Amplitude')
+            ax.legend()
+            ax.grid(True, alpha=0.3)
+        
+        # 空のサブプロットを非表示
+        for i in range(n_modes, n_rows * n_cols):
+            if n_rows > 1:
+                row = i // n_cols
+                col = i % n_cols
+                axes[row, col].set_visible(False)
+            elif n_cols > 1 and i < len(axes):
+                axes[i].set_visible(False)
+        
+        plt.tight_layout()
+        return fig
+
+# 使用例とテスト
+def create_test_data():
+    """テスト用のデータを生成"""
+    # 時間軸
+    t = np.linspace(0, 10, 200)
+    dt = t[1] - t[0]
+    
+    # 複数の動的モードを持つシステム
+    # モード1: 減衰振動
+    mode1 = np.exp(-0.1 * t) * np.sin(2 * np.pi * 0.5 * t)
+    # モード2: 成長振動
+    mode2 = np.exp(0.05 * t) * np.cos(2 * np.pi * 0.8 * t)
+    # モード3: 純粋減衰
+    mode3 = np.exp(-0.2 * t)
+    
+    # 空間構造を追加
+    n_spatial = 50
+    x_spatial = np.linspace(0, 1, n_spatial)
+    
+    # 各モードに異なる空間構造を与える
+    spatial1 = np.sin(np.pi * x_spatial)
+    spatial2 = np.sin(2 * np.pi * x_spatial)
+    spatial3 = np.exp(-((x_spatial - 0.5) / 0.2)**2)  # ガウシアン
+    
+    # データ行列の構築
+    X = (spatial1[:, np.newaxis] @ mode1[np.newaxis, :] + 
+         spatial2[:, np.newaxis] @ mode2[np.newaxis, :] + 
+         spatial3[:, np.newaxis] @ mode3[np.newaxis, :])
+    
+    # ノイズを追加
+    noise_level = 0.05
+    X += noise_level * np.random.randn(*X.shape)
+    
+    return X, t, dt
+
+if __name__ == "__main__":
+    # テストデータの生成
+    X, t, dt = create_test_data()
+    
+    print("データ形状:", X.shape)
+    print("時間刻み:", dt)
+    
+    # DMDの実行
+    dmd = DynamicModeDecomposition(rank=10, svd_rank=15)
+    dmd.fit(X, dt=dt)
+    
+    # 予測
+    X_pred = dmd.predict(t)
+    
+    # モード特性の表示
+    properties = dmd.get_mode_properties()
+    print("\n=== DMD Mode Properties ===")
+    for i in range(min(5, dmd.rank)):
+        print(f"Mode {i+1}:")
+        print(f"  Frequency: {properties['frequencies'][i]:.4f} Hz")
+        print(f"  Growth rate: {properties['growth_rates'][i]:.4f}")
+        print(f"  Amplitude: {properties['amplitudes'][i]:.4f}")
+        print(f"  |λ|: {np.abs(properties['eigenvalues'][i]):.4f}")
+    
+    # 安定性解析
+    stability = dmd.stability_analysis()
+    print(f"\n=== Stability Analysis ===")
+    print(f"Stable modes: {stability['stable_count']}")
+    print(f"Unstable modes: {stability['unstable_count']}")
+    
+    # 結果の可視化
+    fig, axes = plt.subplots(2, 2, figsize=(15, 10))
+    
+    # 元データと予測の比較（時間方向の中央値）
+    mid_spatial = X.shape[0] // 2
+    axes[0, 0].plot(t, X[mid_spatial, :], 'b-', label='Original', linewidth=2)
+    axes[0, 0].plot(t, X_pred[mid_spatial, :].real, 'r--', label='DMD Reconstruction', linewidth=2)
+    axes[0, 0].set_xlabel('Time')
+    axes[0, 0].set_ylabel('Amplitude')
+    axes[0, 0].set_title(f'Time Series (Spatial point {mid_spatial})')
+    axes[0, 0].legend()
+    axes[0, 0].grid(True, alpha=0.3)
+    
+    # 空間プロファイル（時間の中央値）
+    mid_time = len(t) // 2
+    axes[0, 1].plot(X[:, mid_time], 'b-', label='Original', linewidth=2)
+    axes[0, 1].plot(X_pred[:, mid_time].real, 'r--', label='DMD Reconstruction', linewidth=2)
+    axes[0, 1].set_xlabel('Spatial index')
+    axes[0, 1].set_ylabel('Amplitude')
+    axes[0, 1].set_title(f'Spatial Profile (Time step {mid_time})')
+    axes[0, 1].legend()
+    axes[0, 1].grid(True, alpha=0.3)
+    
+    # 固有値（離散時間）
+    eigenvals = dmd.eigenvalues[:dmd.rank]
+    axes[1, 0].scatter(eigenvals.real, eigenvals.imag, c='red', s=50, alpha=0.7)
+    theta = np.linspace(0, 2*np.pi, 100)
+    axes[1, 0].plot(np.cos(theta), np.sin(theta), 'k--', alpha=0.5, label='Unit circle')
+    axes[1, 0].set_xlabel('Real part')
+    axes[1, 0].set_ylabel('Imaginary part')
+    axes[1, 0].set_title('DMD Eigenvalues (Discrete-time)')
+    axes[1, 0].legend()
+    axes[1, 0].grid(True, alpha=0.3)
+    axes[1, 0].axis('equal')
+    
+    # 周波数 vs 成長率
+    axes[1, 1].scatter(properties['frequencies'], properties['growth_rates'], 
+                       c=properties['amplitudes'], s=100, alpha=0.7, cmap='viridis')
+    axes[1, 1].axhline(y=0, color='k', linestyle='--', alpha=0.5)
+    axes[1, 1].set_xlabel('Frequency (Hz)')
+    axes[1, 1].set_ylabel('Growth Rate')
+    axes[1, 1].set_title('DMD Spectrum')
+    axes[1, 1].grid(True, alpha=0.3)
+    
+    cbar = plt.colorbar(axes[1, 1].collections[0], ax=axes[1, 1])
+    cbar.set_label('Amplitude')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # 個別のプロット
+    dmd.plot_eigenvalues()
+    plt.show()
+    
+    dmd.plot_modes(mode_indices=[0, 1, 2, 3])
+    plt.show()
+```
+
+この実装は論文の内容に基づいて以下の特徴を持ちます：
+
+## 主な特徴：
+
+1. **完全なDMDアルゴリズム**: 論文のアルゴリズムに忠実な実装
+2. **SVDベースの次元削減**: 数値的安定性を考慮
+3. **連続・離散時間固有値**: 両方の表現をサポート
+4. **予測機能**: 将来の状態予測
+5. **安定性解析**: システムの安定性評価
+6. **可視化機能**: 固有値、モード、スペクトラムの表示
+
+## 使用方法：
+
+```python
+# データの準備
+X = your_data_matrix  # (n_features x n_timesteps)
+
+# DMDの実行
+dmd = DynamicModeDecomposition(rank=10)
+dmd.fit(X, dt=0.1)
+
+# 予測
+t_future = np.linspace(0, 5, 50)
+X_pred = dmd.predict(t_future)
+
+# 結果の解析
+properties = dmd.get_mode_properties()
+stability = dmd.stability_analysis()
+```
+
+このコードは論文の理論を忠実に実装し、実用的な機能も追加しています。
+user: このコードのシステム安定性の部分はなぜ必要ですか
+assistant: 優れた質問ですね。システム安定性解析が重要な理由を詳しく説明します。
+
+## 1. **DMDの本質的な目的**
+
+DMDは単なるデータ分解手法ではなく、**動的システムの線形近似**を求める手法です：
+
+```python
+# DMDが仮定するシステム
+dx/dt = A*x  # 連続時間
+x_{k+1} = A*x_k  # 離散時間
+```
+
+システムの将来挙動を予測・理解するためには、この線形システムが**安定**か**不安定**かを知る必要があります。
+
+## 2. **安定性の数学的意味**
+
+```python
+def explain_stability():
+    """安定性の数学的説明"""
+    
+    # 離散時間システムでの安定性条件
+    # |λ| < 1 → 安定 (収束)
+    # |λ| = 1 → 中立安定 (振動継続)  
+    # |λ| > 1 → 不安定 (発散)
+    
+    # 連続時間システムでの安定性条件
+    # Re(ω) < 0 → 安定 (減衰)
+    # Re(ω) = 0 → 中立安定 (振動継続)
+    # Re(ω) > 0 → 不安定 (成長)
+    
+    return "安定性は長期的な挙動を決定する"
+```
+
+## 3. **実用的な重要性**
+
+### **予測の信頼性**
+```python
+def prediction_reliability_demo():
+    """予測の信頼性デモ"""
+    
+    # 不安定なシステムの例
+    lambda_unstable = 1.1  # |λ| > 1
+    
+    # 時間が経つにつれて予測誤差が指数的に増大
+    time_steps = np.arange(0, 50)
+    prediction_error = np.abs(lambda_unstable)**time_steps
+    
+    print("不安定システムでは予測が急速に発散します")
+    print(f"10ステップ後の誤差倍率: {prediction_error[10]:.2f}")
+    print(f"20ステップ後の誤差倍率: {prediction_error[20]:.2f}")
+```
+
+### **物理的解釈**
+```python
+def physical_interpretation():
+    """物理的解釈の例"""
+    
+    examples = {
+        "安定モード": [
+            "減衰振動 (振り子の摩擦)",
+            "熱拡散 (温度の平衡化)",
+            "流体の粘性減衰"
+        ],
+        "不安定モード": [
+            "流体不安定性 (乱流遷移)",
+            "構造振動の発散",
+            "制御システムの発散"
+        ],
+        "中立安定モード": [
+            "保存系の振動 (理想振り子)",
+            "波動の伝播",
+            "回転運動"
+        ]
+    }
+    
+    return examples
+```
+
+## 4. **工学的応用例**
+
+```python
+def engineering_applications():
+    """工学的応用での安定性の重要性"""
+    
+    # 例1: 橋の振動解析
+    def bridge_analysis():
+        # 不安定モードが見つかった場合
+        # → 構造補強が必要
+        # → 制振装置の設計
+        pass
+    
+    # 例2: 航空機の制御
+    def aircraft_control():
+        # 不安定モードの存在
+        # → 制御系設計で安定化が必要
+        # → フライトエンベロープの制限
+        pass
+    
+    # 例3: 金融システム
+    def financial_system():
+        # 不安定モードの検出
+        # → システミックリスクの警告
+        # → リスク管理戦略の調整
+        pass
+```
+
+## 5. **改良版のコード例**
+
+```python
+class EnhancedDMD(DynamicModeDecomposition):
+    def detailed_stability_analysis(self):
+        """詳細な安定性解析"""
+        
+        # 基本的な安定性分類
+        eigenvals = self.eigenvalues[:self.rank]
+        magnitudes = np.abs(eigenvals)
+        
+        # より詳細な分類
+        highly_stable = magnitudes < 0.9    # 強安定
+        stable = (magnitudes >= 0.9) & (magnitudes < 1.0)  # 弱安定
+        neutral = np.abs(magnitudes - 1.0) < 1e-6  # 中立安定
+        unstable = magnitudes > 1.0         # 不安定
+        
+        # 時定数の計算（減衰時間）
+        decay_times = -1 / np.real(self.omega)
+        decay_times[np.real(self.omega) >= 0] = np.inf  # 不安定モードは無限大
+        
+        analysis = {
+            'stability_classification': {
+                'highly_stable': np.sum(highly_stable),
+                'stable': np.sum(stable),
+                'neutral': np.sum(neutral),
+                'unstable': np.sum(unstable)
+            },
+            'decay_times': decay_times,
+            'dominant_modes': np.argsort(np.abs(self.b))[::-1][:5],  # 振幅順
+            'critical_modes': np.where(magnitudes > 0.99)[0]  # 臨界モード
+        }
+        
+        return analysis
+    
+    def prediction_confidence(self, t_eval):
+        """予測の信頼度評価"""
+        
+        # 不安定モードの影響を評価
+        eigenvals = self.eigenvalues[:self.rank]
+        unstable_growth = np.max(np.abs(eigenvals[np.abs(eigenvals) > 1.0]))
+        
+        if unstable_growth > 1.0:
+            # 不安定モードが存在する場合の信頼度
+            confidence = np.exp(-0.1 * unstable_growth * t_eval)
+        else:
+            # 安定システムの場合
+            confidence = np.ones_like(t_eval)
+        
+        return confidence
+    
+    def recommend_prediction_horizon(self, confidence_threshold=0.1):
+        """推奨予測期間の計算"""
+        
+        eigenvals = self.eigenvalues[:self.rank]
+        max_magnitude = np.max(np.abs(eigenvals))
+        
+        if max_magnitude <= 1.0:
+            return np.inf  # 安定システム
+        else:
+            # 信頼度が閾値を下回る時間
+            horizon = -np.log(confidence_threshold) / np.log(max_magnitude)
+            return horizon
+
+# 使用例
+def demonstrate_stability_importance():
+    """安定性解析の重要性を示すデモ"""
+    
+    # 安定なシステム
+    t = np.linspace(0, 10, 100)
+    stable_data = np.exp(-0.1 * t) * np.sin(2 * np.pi * t)
+    
+    # 不安定なシステム  
+    unstable_data = np.exp(0.1 * t) * np.sin(2 * np.pi * t)
+    
+    # それぞれにDMDを適用
+    for name, data in [("Stable", stable_data), ("Unstable", unstable_data)]:
+        X = data[np.newaxis, :]  # 1次元データを2次元に
+        
+        dmd = EnhancedDMD()
+        dmd.fit(X, dt=t[1]-t[0])
+        
+        # 長期予測
+        t_future = np.linspace(0, 20, 200)
+        prediction = dmd.predict(t_future)
+        confidence = dmd.prediction_confidence(t_future)
+        horizon = dmd.recommend_prediction_horizon()
+        
+        print(f"\n=== {name} System ===")
+        print(f"Max eigenvalue magnitude: {np.max(np.abs(dmd.eigenvalues)):.3f}")
+        print(f"Recommended prediction horizon: {horizon:.2f}")
+        print(f"System classification: {'Stable' if np.max(np.abs(dmd.eigenvalues)) < 1 else 'Unstable'}")
+
+if __name__ == "__main__":
+    demonstrate_stability_importance()
+```
+
+## **まとめ**
+
+安定性解析が必要な理由：
+
+1. **予測精度の評価**: どこまで信頼できる予測ができるか
+2. **物理的理解**: システムの本質的な挙動の把握
+3. **工学的判断**: 制御や設計の必要性の判断
+4. **リスク評価**: 長期的な挙動のリスク評価
+5. **モード選択**: 重要なモードの特定と選択
+
+DMDは単なるデータ処理ではなく、**動的システムの理解と予測**のためのツールです。安定性解析により、その結果をより深く理解し、適切に活用できるようになります。
