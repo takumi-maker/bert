@@ -1,0 +1,669 @@
+system: You are an intelligent and diligent AI assistant. If images are entered, read them through to understand their contents. Please answer in the same language as the user entered if no instructions are given.
+user: 以下はアップロードしたファイルの文章を抽出したものです
+             --------
+         不確実性を考慮したトレーダー・カンパニー法による解釈可能な株価予測UncertaintyAwareTrader-CompanyMethod:InterpretableStockPricePredictionCapturingUncertainty藤本悠吾1∗中川慧1今城健太郎2南賢太郎2YugoFujimoto,KeiNakagawa,KentaroImajo,KentaroMinami,1野村アセットマネジメント株式会社1NomuraAssetManagementCo.,Ltd.2株式会社PreferredNetworks2PreferredNetworks,Inc.Abstract:機械学習を用いた株価予測は実務的にも学術的にも重要であり、多くの研究がおこなわれている。それらのうち有望な方法の一つとして、株式市場のダイナミズムを考慮し、高い予測力と解釈可能性を兼ね備えたTrader-Company(TC)法がある。一方、TC法をはじめとする機械学習による株価予測手法は、点推定であり、その予測の不確実性が考慮できていないため、実務的な応用に際して懸念が生じる。そこで本研究では、UncertaintyAwareTrader-CompanyMethod(UTC)法という高い予測力を持ち、予測の不確実性を定量化できる株価予測手法を提案する。UTC法は、TC法を不確実性の推定を可能にする確率的モデリングと組み合わせることにより、不確実性を捉えながら、TC法の予測力と解釈可能性を維持できる。理論的にも、UTC法による推定分散が事後分散を反映し、かつTC法に対して予測の悪化につながるバイアス等を与えないことを証明できる。さらに、人工および実際の市場データに基づいた実証分析を行いUTC法の有効性を確認した。人工データでは、予測が困難な状況や予測対象の分布の変化をUTC法が検出できることを確認した。実際の市場データを用いた分析では、UTC法による投資戦略がベースライン手法よりも高いリスク・リターン比を達成できることを示した。1はじめに株価予測は学術的にも金融業界にとっても重要な問題である。これまでの研究の中で、株式市場は一般に複雑で非線形かつ動的なシステムと捉えられている[1,2,3]。株式市場のこのような動的な性質を捉えるため、機械学習は近年特にその活用が進んでいる。その中でも、Trader-Company(TC)法と呼ばれる、金融機関とその中で働くトレーダーを模したメタ・ヒューリスティクスが株価予測において有効性が確認されている[4]。TC法は、後述のようにTraderと呼ばれる予測器および、その予測器の予測を集計するCompanyによって構成され、これらを組み合せることで市場の動的な性質を捉え、高い予測力と解釈性を両立した手法である。ここで、TC法を含む機械学習による株価予測手法は、一般には点推定であり、その意味での予測に注力∗連絡先:〒135-0061東京都江東区豊洲２丁目２−１E-mail:yu5fujimoto@gmail.comしてきた。しかしながら、点推定では予測の不確実性が考慮できないため、予測手法を金融実務に応用するに際して懸念が生じることが指摘されている[5,6]。本研究では、予測の不確実性を考慮するために、予測とその不確実性推定を同時に扱うことのできる確率的モデリングを用いる[7]。予測の不確実性を考慮する有力なアプローチに、予測の分散に焦点を当てたアンサンブルベースの不確実性推定手法がある[8,9,10]。この方法は、分布を明示的に学習する方法よりもデータ分布の推移に対してより堅牢であることが実験的に確認されており[9,10]、金融市場のような動的な環境の予測に効果が期待される。そこで本研究では、UncertaintyAwareTrader-CompanyMethod(UTC)法という高い予測力を持ち、予測の不確実性を定量化できる株価予測手法を提案する。このアプローチの核となるアイデアは、TC法を確率モデリングのフレームワークと組み合わせることであり、予測の不確実性を捉えながら、TC法の予測力と解釈可能性73人工知能学会第二種研究会資料 金融情報学研究会 SIG-FIN-029-13を保持することをねらいとしている。具体的には、TC法のTraderの出力から予測の不確実性を推定する方法を新たに提案する。提案手法は、予測の不確実性(分散)をTraderとCom-panyの2段階のアルゴリズムによって推定する。この手法による不確実性の推定が、過去リターンが与えられたときの予測リターンの事後分散を適切に反映していることを証明する。また、UTC法の予測リターンは、Traderの事前分布にいくつかの仮定を置くことでで、元のTC法の予測リターンと一致することを証明する。つまり、UTC法によってバイアスが入らないことを示す。最後に提案手法であるUTC法の有効性を人工データおよび実際の市場データに基づいて評価する。人工データにおける評価では、UTC法が予測の不確実性が増し、予測が困難な状況を検出できることを示す。あわせて、データ生成過程の急激な変化も検出できることも確認する。さらに、実データを用いた実験により、UTC法に基づく投資戦略は、ベースライン手法の投資戦略と比較してリスクを抑え、安定したリターンを得られることを示す。2準備2.1問題設定本論文では、過去の株価推移を用いて将来のリターンを予測する。Xi[t]を銘柄iのt時点の株価とする。(ただし、1≤i≤S、0≤t≤Tとする。)ここで、1期先の対数利回りを以下のように表す。ri[t]:=log(Xi[t]/Xi[t−1])≈Xi[t]−Xi[t−1]Xi[t−1].(1)また、銘柄iおよび、銘柄iからjの期間uからv(u≤v)の利回りを以下のように表す。ri[u:v]:=(ri[u],···,ri[v]),(2)ri:j[u:v]:=(ri[u:v],···,rj[u:v])(3)このとき、本研究の問題設定は以下のように定式化できる。Problem1(1期先リターン予測).各時刻0≤t≤T−1において、リターンri[t](1≤i≤S)を観測する。このとき、過去t時点までのリターンr1:S[0:t]を用いて、1期先のリターンri[t+1]およびその予測の不確実性σi[t+1]を推定する。つまり、予測器ftの出力は以下のように書ける。ˆri[t+1],ˆσi[t+1]=ft(r1:S[0:t])(4)本研究の目的は、1期先リターンri[t+1]および、その予測誤差をよく推定する予測器ftを学習することである。2.2TraderCompany法本章ではTraderCompany(TC)法について概観する。TC法はTraderと呼ばれる予測器とCompanyと呼ばれる集約アルゴリズムによって構成される。Traderは、現実の取引戦略を模した簡単な数式によってリターンを予測する。Companyは複数のTraderの出力を集約し、予測リターンを出力する。Companyは、実際にトレーダーを管理する金融機関の役割を模倣した進化的アルゴリズムを利用している。2.2.1Trader-シンプルな予測器Deﬁnition1.Mを式の項数、各1≤j≤Mに対して、Pj,Qjを予測に用いる銘柄の番号、Dj,Fjを与える遅延、Ojを利用する二項演算子、Ajを活性化関数、wjを重みとする。このとき、パラメータθ:={M,{Pj,Qj,Dj,Fj,Oj,Aj}Mj=1}に従うTraderは、下式で定義される。fθ,w(r1:S[0:t])=M∑j=1wjAj(Oj(rPj[t−Dj],rQj[t−Fj])).(5)ここで、活性化関数Ajには、恒等関数、tanh、sinh、ReLUを用いた。また、二項関数Ojには、四則演算、射影、max/min、比較演算を用いた。Traderは下式で定義される自身の取引戦略の累積リターンを最大化するように学習される。argmaxθ,w∑usign(fθ,w(r1:S[0:u]))·ri[u+1](6)TC法は、Companyによる進化アルゴリズムを用いて、これらの離散的なパラメータの最適化を行う。2.2.2Company-最適化と集約アルゴリズムAlgorithm1TC法におけるCompanyによる教育Input:r1:S[0:t]:stockreturnsbeforetInput:Traders.N:thenumberofTraders.Q:ratio.Output:Traders1:functionCOMPANYEDUCATE2:Rn⇐R(fθn,wn,r1:S[0:t],ri[0:t+1])▷Trader’sreturn(6)3:R∗⇐bottomQpercentileof{Rn}4:forn∈{m|Rm≤R∗}do▷forallbadtraders5:Updatewiin(5)byleastsquaresmethod6:endfor7:returnTraders8:endfunction74Algorithm2Companyによる解雇と採用Input:r1:S[0:t]:stockreturnsbeforet,F:#ofﬁttimesInput:N:thenumberofPredictors.Q:ratio.Output:N′Predictors1:θn,wn∼UnifromDistribution2:fork=1,···,Fdo3:Rn⇐R(fΘ,r1:S[0:t],ri[0:t+1])▷Trader’sreturn(6)4:R∗⇐bottomQ-percentileof{Rn}5:{(θj,wj)}j⇐{(θn,wj)|Rn≥R∗}▷Pruning6:{(θj,wj)}N′j=1∼GMﬁttedto{(θj,wj)}j*▷Generation7:endfor8:returnN′Predictorswith{(θj,wj)}N′j=1*Iftheparameterisaninteger,werounditoff.CompanyはN人のTraderを保持し、その出力を集約することで予測を行う。各Traderのパラメータをθ1,...,θN,w1,...,wNとし、t時点までのリターンをr1:S[0:t]とすると、Companyは次式によって、1期先リターン予測を行う。ˆr[t+1]=Aggregate(fθ1,w1,...,fθn,wn).集約関数Aggregateには、1N∑Nn=1fθn,wn(r1:S[0:t])を用いた。CompanyはTraderの予測性能を向上させるとともに過適合を防ぐため、教育(Algorithm1)と解雇と採用(Algorithm2)のプロセスを繰り返すことでパラメータを求めている。Traderの教育:式(5)のTraderは、M個の数式の線形和で表現できるため、その重みを線形回帰を用いて更新する。Traderの解雇と採用:次に、各Traderの累積リターンを算出し、リターンが下位のTraderを解雇(削除)する。次に、優秀なTraderを模倣するように新しいTraderを採用(生成)する。すなわち、解雇後のTraderのパラメータを混合ガウス分布に当てはめて、そこから新しいパラメータをランダムに生成する。3提案手法:UncertaintyAwareTrader-Company法本章では、TC法を不確実性を考慮できるように拡張した提案手法であるUncertaintyAwareTrader-CompanyMethodについて説明する。提案手法では、TC法を拡張し、これらの予測の不確実性を推定する。図1は提案手法の予測の概略を示したものである。3.1Trader提案手法におけるTraderは基本的には2.2.1節で示したTC法の定義に沿う。TC法との違いは、Traderのパラメータθnおよび重みwnを経験分布Θから選ばれると仮定し、この分布を学習することである。単一の戦略ではなく、戦略の分布を学習することで、現在の戦略の不確実性の推定を行う。では、Traderが不確実性を推定する手法について議論する。計算を容易にするため、特にTraderの重みの分布が平均m、共分散Σの多変量正規分布に従うと仮定する。このとき、Traderの出力の期待値及び分散は以下のように計算できる。µn=m⊤zn,σ2n=z⊤nΣzn(7)ここで、znは下式によって計算されるTraderの用いる特徴量の値とする。zn[j]=Aj(Oj(rPj[t−Dj],rQj[t−Fj])).(8)この、Traderの予測の分散はCompany全体の予測の分散の推定に利用される。次に、Companyによる分布Θの最適化について議論する。3.2CompanyCompanyについても、基本的な枠組みについてはTC法のものを継承し、N人のTrader、すなわち弱学習器とその集約アルゴリズムによって構成する。ここで我々はTraderの出力をもとに、予測の期待値に加え分散を推定する手法を提案する。パラメータθ1,...,θnを持つN人のTraderと、過去リターンr1:S[0:t]が与えられたとする。TC法と同様に、集約アルゴリズムに単純平均を採用した場合、予測の平均と分散は以下のように計算できる。µ=1NN∑n=1µn,σ=√σ2intra+σ2inter,σ2intra=1NN∑n=1(µn−µ)2,σ2inter=1NN∑n=1σ2n.(9)以上の手順をまとめたものがAlgorithm3である。Com-panyによるTraderの最適化については、まず解雇と採用はTC法と同様のアルゴリズムを繰り返し実行する。次に、Traderの教育については、提案手法では各Traderの重みに確率分布を導入したため、これを最適化する必要がある。そこで、提案手法では最大事後確率(MAP)75図1:UncertaintyAwareTrader-Company法の概略Algorithm3UTC法における不確実性の推定Input:r1:S[0:t]:stockreturnsbeforetInput:Traders:{(θn,wn)}Nn=1Output:µ[i][t+1]:predictedreturnofstockiatt,σ2[i][t+1]:estimatedvarianceofreturnofstockiatt1:functionCOMPANYPREDICTION2:forn=1,···,Ndo3:µn,σn⇐fθn,wn(r1:S[0:t])▷PredictionbyTrader(7)4:endfor5:µ=1N∑t∈{1,2,···,N}µt6:σ2intra=1N∑t∈{1,2,···,N}(µt−µ)27:σ2inter=1N∑t∈{1,2,···,N}σ2t8:σ=√σ2intra+σ2inter9:returnµ,σ10:endfunction推定を利用する。Traderの重みが正規分布に従うときこの解は解析的に求められるので、重みの更新を頻繁に行う提案手法の計算コストを抑えることができる。最後に、TC法と提案手法の訓練プロセスを比較すると、以下の通りである。1.性能の悪いTraderをTC法ではAlgorithm1、提案手法ではAlgorithm4に従って教育する。2.性能の悪いTraderをAlgorithm2に従って解雇し、新たに生成したTraderに置き換える。3.集約関数Aggregateが訓練可能なパラメータを保つ場合には、データr1:S[t1:t2]を用いて更新する。4.TC法では集約関数、提案手法ではAlgorithm3を用いて将来リターンを予測する。Algorithm4UTC法におけるCompanyによる教育Input:r1:S[0:t]:stockreturnsbeforetInput:Traders{(θn,wn)}Nn=1.N:thenumberofTraders.Q:ratio.Output:Traders1:functionCOMPANYEDUCATE2:Rn⇐R(fΘn,r1:S[0:t],ri[0:t+1])▷Trader’sreturn(6)3:R∗⇐bottomQpercentileof{Rn}4:forn∈{m|Rm≤R∗}do▷forallbadtraders5:Updatetraders’weightdistributionsbyMAPestimation6:endfor7:returnTraders8:endfunction3.3理論的性質ここでは、UTC法の満たす以下の2つの理論的な性質について証明する。命題1:UTC法は予測の不確実性(事後分散)を推定している。命題2:UTC法はTC法の予測に対してバイアスが入らない。Traderの経験分布は、訓練データが与えられたもとでリターンを最大化するように最適化されており、Traderの事後分布をよく近似していることが期待される。次の命題は、この仮定が成り立つとき提案手法による分散が、予測の事後分散を推定していることを示す。Proposition1(事後分散の推定).訓練データをDとする。UTC法の学習によって得られたTraderの経験分布q(D)が、Traderの事後分布p(θ|D)をよく近似しているとする。このとき、リターンの事後分散Vp(y|x,D)[y]は、式(9)によって近似できる。76Proof.教育ステップでは、最大事後確率(MAP)推定を用いてTraderの重みの最適化を行うため、Traderの重みは以下を満たす。µθ(x)≈Ep(y|x,θ,D)[y],σ2θ(x)≈Vp(y|x,θ,D)[y].また、仮定よりq(D)≈p(y|x,D)であるため、Vp(y|x,D)[µθ(x)]≈1N∑n(µn−µ)2Ep(y|x,D)[σ2θ(x)]≈1N∑nσ2n.以上より、Vp(y|x,D)[y]=Vp(θ|D)[Ep(y|x,θ,D)[y]]+Ep(θ|D)[Vp(y|x,θ,D)[y]]≈Vp(y|x,D)[µθ(x)]+Ep(y|x,D)[σ2θ(x)]≈1N∑n(µn−µ)2+1N∑nσ2n.次に、提案手法はTC法に比べて予測の悪化につながるバイアスを加えないことを示す。すなわち、以下の仮定を満たすようにパラメータを設定した下で、UTC法の出力の期待値は、TC法の出力と一致することを示す。まず、TraderおよびEducateアルゴリズムの不偏性について2つ補題を示す。Lemma1(UTC法の予測の不偏性).UTC法およびTC法で学習したCompanyをそれぞれC、C′とし、データxに対する予測リターンの期待値および予測リターンをそれぞれE[y]、y′とする。各Traderのパラメータ{θn}n∈C、{θ′n}n∈C′がそれぞれ一致し、Traderの重みについてもUTC法の分布の期待値{E[wn]}n∈Cが、TC法の重み{w′n}n∈C′とそれぞれ一致するとする。このとき、UTC法の予測リターンの期待値E[y]は、TC法の予測リターンy′と等しい。Proof.CompanyCおよびC′の各Traderの特徴量(8)をそれぞれ{zn}n∈Cand{z′n}n∈C′とする。このとき、各Traderのパラメータは重みを除いて一致するため特徴量はzn=z′nを満たす。Traderの定義より、このときTC法の予測リターン{y′n}n∈C′よび、提案手法の予測リターンの期待値E[yn]は、次のように求められる。E[yn]=E[w⊤nzn]=E[wn]⊤zn,y′n=w⊤z′n.よって、E[yn]=y′n.提案手法でTC法と同様に単純平均を集約関数に採用した場合、それぞれの手法の予測リターンE[y],y′は下式より一致する。E[y]=1N∑nE[yn]=1N∑ny′n=y′.Lemma2(教育アルゴリズムの不偏性).X,Yを訓練データとし、UTC法でのTraderTのパラメータと重みの分布をそれぞれθT、wとする。TC法でのTraderT′のパラメータと重みをそれぞれθT′、w′とする。両者がθT=θT′を満たすとき、それぞれの重みはE[w]=w′を満たす。Proof.各Traderの特徴量をZ,Z′とすると、これらはθT=θT′より一致する。このとき、UTC法ではMAP推定を用いて更新するので、事前分布がw∼N(0,σ20),T∼N(Y,σ2).を満たすとき、事後分布は以下の形で書ける。p(w|T,Z)∝exp(−∥Zw−T∥22σ2−12σ20w⊤w).一方、TC法は線形回帰を用いて更新する。特にリッジ回帰を用いて更新するとき、更新後の重みはw′=(Z⊤Z+λI)−1Z⊤Yである。これらは、λ=σ2σ20のもとでE[w]=w′を満たす。最後に、補題の仮定を満たすようにハイパーパラメーターを設定した際にUTC法がTC法に対して不要なバイアスを与えないことを示す。Proposition2(UTC法のTC法に対する不偏性).UTC法とTC法のハイパーパラメータを、それぞれ補題1、2を満たすように設定して学習した場合、UTC法の出力分布の期待値は、TC法の出力と一致する。Proof.補題2より、両者のTraderの重みは教育の過程において期待値の意味で一致する。また、解雇及び採用の過程については両者の挙動は一致する。このときUTC法とTC法では、両者のTraderのパラメーターの経験分布Θ、Θ′は一致する。よって、補題1よりUTC法の出力分布の期待値は、TC法の出力と一致する。4実証分析4.1人工データを用いた分析4.1.1非線形時系列データ次の非線形時系列を例として使用し、UTC法の有効性を検証する。y0(t)=0.5y0(t−1)−0.5y0(t−1)y1(t−1)(10)+0.1min(y0(t−1),y1(t−1))+ε0(t)y1(t)=−0.2y1(t−1)+0.8y0(t−1)(11)+0.5max(y0(t−1),y1(t−1))+ε1(t)ε0(t),ε1(t)はそれぞれ独立にN(0,0.1)に従う。ベースラインとしてラグ1のVAR[11]モデルを使用した。上77図2:VARモデルとUTC法の誤差(上)、UTC法の予測標準偏差と誤差の散布図(下)記データを1800サンプルを使用し訓練し、200サンプルを検証に使用した。図2の上のパネルは、UTC法とVARモデルとの誤差(MAE)の比較を示している。また、下のパネルは、予測標準偏差と予測誤差の間の散布図を示している。UTC法は時系列データの非線形の特徴をうまく捉えているため、VARモデルよりも精度が良いことが確認できる。同時に、予測誤差が大きい、つまり予測が困難な場合、予測誤差が大きくなる。これは、UTC法が予測の不確実性を捉えることができることを示唆している。4.1.2生成過程の変化次に、以下の生成過程が変化する時系列を用いてUTC法の性能を評価する。y2(t)={y0(t−1)+y1(t−1)+ϵ2(t)(t<200)y0(t−1)−y1(t−1)+ϵ2(t)(t≥200)ε2(t)はN(0,0.1)に従う。100データを訓練データとして使用し、新しい観測を用いてモデルを順次更新し、予測を行う。図3は誤差および予測誤差結果を示している。図から生成過程が変化したデータが増えるにつれて誤差が増加する(青色の領域)。これに伴い、予測誤差も増加している。さらに、生成過程が完全に移行す図3:生成過程の変化データでのUTC法の誤差と予測誤差ると、誤差と予測誤差は再び減少する。これは、生成過程の変化による予測の信頼性の低下を検出したことを意味する。4.2市場データを用いた分析4.2.1データセット市場データとして、TOPIX100指数の構成銘柄を使用し、日次取引およびイントラデイ取引の2つの設定での分析を行う。日次取引では、2010年1月4日から2022年1月31日までのTOPIX100の構成銘柄の終値を使用する。そのうち、2017年12月30日までを訓練期間に、残りを検証期間として利用する。一方で、イントラデイ取引では、2016年1月4日から2021年6月30日までのTOPIX100の構成銘柄の1時間ごとの終値を使用する。そのうち、2019年12月30日までを訓練期間に、残りを検証期間として利用する。4.2.2分析の設定[4]と同様に、ウィンドウw>0と取引実行ラグl>0を導入し、w=10とl=1とした。観測値r1:S[t−l−w:t−l]を使用してモデルを訓練し、各時点tごとにリターンを予測する。ri[t]はt時点での株式i(i∈{1,...,S})のリターンであり、tからt+1の時間幅は、日次取引は1日、イントラデイ取引では1時間を表す。以上のもとで、提案手法の有効性を評価するために、次のような仮想的な取引を行う。tの予測ラベル(t+1で上昇するか下落するかを示す)が正の場合は株を1枚ロングし、負の場合はショートする。ここで、tでの取引からのリターンをR[t]=mean(ˆbi[t]×ri[t])と定義する。ˆri[t]は予測値、ˆbi[t]=sign(ˆri[t])および78表1:TC法とUTC法のハイパーパラメータParameterValueM{1,···,10}Dj,Fj{0,···,10}Aj(x){x,tanh(x),exp(x),sign(x),ReLU(x)}Oj(x,y){x+y,x−y,xy,x,y,max(x,y),min(x,y),x>y,x<y,Corr(x,y)}N200AggregateSimpleAveragingQ0.1mean(·)は、その入力の平均値を表す。ベースラインとして以下の手法を提案手法と比較する。•Market:TOPIX100の等ウェイトのバイアンドホールド[12]。•VAR:ˆri[t]をAICで1から10までのラグで選択したVAR(1)モデルでの予測。•RF:ˆri[t]をScikit-learn[13]のランダムフォレストで推定した。•TC:ˆri[t]をTC法で推定。•UTC:σi[t]2を予測分散とするUTC法。ˆbi[t]=sign(ˆri[t]×IA)として、Iは指示関数、Aはσi[t]2が過去の予測分散の閾値を超える事象とし、R[t]=mean(ˆbi[t]ri[t])と計算する。表1は、TC法とUTC法の両方で使用されるハイパーパラメータを一覧を表示している。4.2.3評価指標評価指標は次の5つを使用する。TYは一年間の取引回数を表し、日次取引ではTY=250、イントラデイ取引ではTY=1250とする。•年率リターン(AR):AR:=TY×mean(R[t]).•年率リスク(RISK):RISK:=√TY×√∑Tt=1(R[t]−mean(R[t]))2/(T−1).•シャープレシオ(SR):SR:=AR/RISK.•最大ドローダウン(MDD):MDD:=max1≤t≤Tmaxt<s≤T(1−C[t]/C[s]).ここで、C[t]:=∑tj=1R[j]は累積リターン。•カルマーレシオ(CR):CR:=AR/MDD.表2:日次取引の結果(5試行の平均)UTCTCMarketRFVARAR5.429.038.567.808.13RISK4.459.0517.908.3716.90SR1.221.000.480.93-0.48MDD-6.43-13.99-28.66-12.12-27.03CR0.860.640.300.640.30図4:日次取引の累積リターンの推移4.2.4結果表2と3は、日次取引およびイントラデイ取引を5回実行し、結果を平均した表である。図4と5は、日次取引とイントラデイ取引での各手法の累積リターンC[t]の推移である。TC法は、日次取引、イントラデイ取引の両方の設定で、高いリターンを獲得した一方で、不確実性を考慮していないため、リスクも高い。UTC法では予測の不確実性が低い銘柄のみに投資するため、リスクを抑えながら安定したリターンを実現していることがわかる。したがって、UTC法はSRとCRにおいて最も良い結果となった。特に、2020年上半期のコロナショック下では、その時期の市場の不確実性を捉え、大幅な下落を抑えることができている。5結論本稿では、確率的モデリングを使用してTC法を拡張した、Uncertanity-awareTC(UTC)法という新しい株価予測手法を提案した。UTC法は、TC法の予測力と解釈可能性を維持しながら、不確実性を捉えることができる。本稿の貢献は次の通り。•提案手法が予測の不確実性(事後分散)を推定することを、学習済みのTraderの分布が事後分布をよく近似しているという仮定のもとで示した。79表3:イントラデイ取引の結果(5試行の平均)UTCTCMarketRFVARAR9.6011.97.752.704.11RISK6.428.4221.211.625.06SR1.521.460.370.230.81MDD-6.95-9.83-30.96-15.87-4.57CR1.521.370.250.170.90図5:イントラデイ取引の累積リターンの推移•提案手法がTC法に不要なバイアスを追加しないことを示した。•人工データを用いて、提案手法による予測の難しい局面やデータの大きな変化の検知を確認した。•現実の市場データのもとで提案手法に基づく取引戦略が高いリスク調整後リターンを達成することを実証した。今後の研究の課題として、Companyの解雇と採用アルゴリズムにおいて、Traderを採用または解雇する際の不確実性を考慮することがあげられる。さらに、Traderのパラメータの従う分布がガウス混合分布であると仮定しているが、別のノンパラメトリックな方法でモデル化することがあげられる。参考文献[1]RamaCont.Empiricalpropertiesofassetreturns:stylizedfactsandstatisticalissues.Quantitativeﬁnance,1(2):223,2001.[2]CarsHHommes.Financialmarketsasnonlinearadap-tiveevolutionarysystems.QuantitativeFinance,1(1):149,2001.[3]MariaRosaBorges.Efﬁcientmarkethypothesisineuro-peanstockmarkets.TheEuropeanJournalofFinance,16(7):711–726,2010.[4]KatsuyaIto,KentaroMinami,KentaroImajo,andKeiNak-agawa.Trader-companymethod:Ametaheuristicsforin-terpretablestockpriceprediction.InProceedingsofthe20thInternationalConferenceonAutonomousAgentsandMultiAgentSystems,pages656–664,2021.[5]MarkusJaeger,StephanKr¨ugel,DimitriMarinelli,JochenPapenbrock,andPeterSchwendner.Understandingma-chinelearningfordiversiﬁedportfolioconstructionbyex-plainableai.MarkusJaeger,StephanKr¨ugel,DimitriMarinelli,JochenPapenbrockandPeterSchwendner.Inter-pretableMachineLearningforDiversiﬁedPortfolioCon-struction.TheJournalofFinancialDataScienceSummer,2021.[6]DanielPhilps,DavidTilles,andTimothyLaw.Inter-pretable,transparent,andauditablemachinelearning:Analternativetofactorinvesting.TheJournalofFinancialDataScience,3(4):84–100,2021.[7]ChristopherMBishopandNasserMNasrabadi.Patternrecognitionandmachinelearning,volume4.Springer,2006.[8]YarinGalandZoubinGhahramani.Dropoutasabayesianapproximation:Representingmodeluncertaintyindeeplearning.InMariaFlorinaBalcanandKilianQ.Wein-berger,editors,ProceedingsofThe33rdInternationalCon-ferenceonMachineLearning,volume48ofProceedingsofMachineLearningResearch,pages1050–1059,NewYork,NewYork,USA,20–22Jun2016.PMLR.[9]BalajiLakshminarayanan,AlexanderPritzel,andCharlesBlundell.Simpleandscalablepredictiveuncertaintyes-timationusingdeepensembles.InI.Guyon,U.VonLuxburg,S.Bengio,H.Wallach,R.Fergus,S.Vish-wanathan,andR.Garnett,editors,AdvancesinNeuralIn-formationProcessingSystems,volume30.CurranAsso-ciates,Inc.,2017.[10]AndreyMalinin,LiudmilaProkhorenkova,andAlekseiUs-timenko.Uncertaintyingradientboostingviaensembles.InInternationalConferenceonLearningRepresentations,2021.[11]JamesDouglasHamilton.Timeseriesanalysis.Princetonuniversitypress,2020.[12]VictorDeMiguel,LorenzoGarlappi,andRamanUppal.Optimalversusnaivediversiﬁcation:Howinefﬁcientisthe1/nportfoliostrategy?ThereviewofFinancialstudies,22(5):1915–1953,2009.[13]FabianPedregosa,Ga¨elVaroquaux,AlexandreGramfort,VincentMichel,BertrandThirion,OlivierGrisel,MathieuBlondel,PeterPrettenhofer,RonWeiss,VincentDubourg,etal.Scikit-learn:Machinelearninginpython.theJournalofmachineLearningresearch,12:2825–2830,2011.80
+assistant: ファイル内容を理解しました
+user: [object Object],[object Object]
+assistant: ファイル内容を理解しました
+user: [object Object],[object Object]
+assistant: ファイル内容を理解しました
+user: [object Object],[object Object]
+assistant: ファイル内容を理解しました
+user: [object Object],[object Object]
+assistant: ファイル内容を理解しました
+user: [object Object],[object Object]
+assistant: ファイル内容を理解しました
+user: [object Object],[object Object]
+assistant: ファイル内容を理解しました
+user: [object Object],[object Object]
+assistant: ファイル内容を理解しました
+user: [object Object],[object Object]
+assistant: ファイル内容を理解しました
+user: この論文のUTC法をpythonで実装してください
+assistant: UTC法（Uncertainty Aware Trader-Company Method）のPython実装を以下に示します：
+
+```python
+import numpy as np
+import pandas as pd
+from typing import List, Tuple, Dict, Callable
+from scipy.stats import multivariate_normal
+from sklearn.linear_model import Ridge
+import warnings
+warnings.filterwarnings('ignore')
+
+class Trader:
+    """個別のTraderクラス"""
+    def __init__(self, M: int, S: int, max_delay: int = 10):
+        """
+        Parameters:
+        -----------
+        M : int
+            式の項数
+        S : int
+            銘柄数
+        max_delay : int
+            最大遅延
+        """
+        self.M = M
+        self.S = S
+        self.max_delay = max_delay
+        
+        # パラメータの初期化
+        self.P = np.random.randint(0, S, M)  # 予測に用いる銘柄番号1
+        self.Q = np.random.randint(0, S, M)  # 予測に用いる銘柄番号2
+        self.D = np.random.randint(0, max_delay, M)  # 遅延1
+        self.F = np.random.randint(0, max_delay, M)  # 遅延2
+        
+        # 演算子と活性化関数
+        self.operators = [self._add, self._subtract, self._multiply, 
+                         self._divide, self._max, self._min, self._greater, self._less]
+        self.activations = [self._identity, self._tanh, self._relu, self._sign]
+        
+        self.O_idx = np.random.randint(0, len(self.operators), M)
+        self.A_idx = np.random.randint(0, len(self.activations), M)
+        
+        # 重みの分布パラメータ（平均と共分散）
+        self.weight_mean = np.zeros(M)
+        self.weight_cov = np.eye(M) * 0.1
+        
+        # 累積リターン
+        self.cumulative_return = 0
+        
+    def _add(self, x, y): return x + y
+    def _subtract(self, x, y): return x - y
+    def _multiply(self, x, y): return x * y
+    def _divide(self, x, y): return np.where(y != 0, x / y, 0)
+    def _max(self, x, y): return np.maximum(x, y)
+    def _min(self, x, y): return np.minimum(x, y)
+    def _greater(self, x, y): return (x > y).astype(float)
+    def _less(self, x, y): return (x < y).astype(float)
+    
+    def _identity(self, x): return x
+    def _tanh(self, x): return np.tanh(x)
+    def _relu(self, x): return np.maximum(0, x)
+    def _sign(self, x): return np.sign(x)
+    
+    def get_features(self, returns: np.ndarray, t: int) -> np.ndarray:
+        """特徴量を計算"""
+        features = np.zeros(self.M)
+        
+        for j in range(self.M):
+            if t - self.D[j] >= 0 and t - self.F[j] >= 0:
+                r_p = returns[self.P[j], t - self.D[j]]
+                r_q = returns[self.Q[j], t - self.F[j]]
+                
+                # 二項演算
+                op_result = self.operators[self.O_idx[j]](r_p, r_q)
+                
+                # 活性化関数
+                features[j] = self.activations[self.A_idx[j]](op_result)
+            
+        return features
+    
+    def predict_with_uncertainty(self, returns: np.ndarray, t: int) -> Tuple[float, float]:
+        """予測値と不確実性を返す"""
+        z = self.get_features(returns, t)
+        
+        # 予測の期待値
+        mu = np.dot(self.weight_mean, z)
+        
+        # 予測の分散
+        sigma_squared = np.dot(z, np.dot(self.weight_cov, z))
+        
+        return mu, np.sqrt(sigma_squared)
+    
+    def update_weights_map(self, X: np.ndarray, y: np.ndarray, lambda_reg: float = 0.1):
+        """MAP推定による重みの更新"""
+        # 事前分布の精度行列
+        prior_precision = np.eye(self.M) / 0.1
+        
+        # 事後分布の共分散
+        posterior_cov = np.linalg.inv(X.T @ X / 0.01 + prior_precision)
+        
+        # 事後分布の平均
+        posterior_mean = posterior_cov @ (X.T @ y / 0.01)
+        
+        self.weight_mean = posterior_mean
+        self.weight_cov = posterior_cov
+
+class Company:
+    """Companyクラス：複数のTraderを管理"""
+    def __init__(self, n_traders: int, n_stocks: int, M: int = 5, Q: float = 0.1):
+        """
+        Parameters:
+        -----------
+        n_traders : int
+            Traderの数
+        n_stocks : int
+            銘柄数
+        M : int
+            各Traderの式の項数
+        Q : float
+            解雇する割合
+        """
+        self.n_traders = n_traders
+        self.n_stocks = n_stocks
+        self.M = M
+        self.Q = Q
+        
+        # Traderの初期化
+        self.traders = [Trader(M, n_stocks) for _ in range(n_traders)]
+        
+    def predict_with_uncertainty(self, returns: np.ndarray, t: int) -> Tuple[np.ndarray, np.ndarray]:
+        """全銘柄の予測と不確実性を計算"""
+        predictions = np.zeros((self.n_traders, self.n_stocks))
+        uncertainties = np.zeros((self.n_traders, self.n_stocks))
+        
+        for i, trader in enumerate(self.traders):
+            for s in range(self.n_stocks):
+                # 各銘柄に対する予測
+                mu, sigma = trader.predict_with_uncertainty(returns, t)
+                predictions[i, s] = mu
+                uncertainties[i, s] = sigma
+        
+        # 集約（単純平均）
+        mu = np.mean(predictions, axis=0)
+        
+        # 分散の計算
+        sigma_intra = np.var(predictions, axis=0)  # Trader間の分散
+        sigma_inter = np.mean(uncertainties**2, axis=0)  # Trader内の分散
+        
+        sigma = np.sqrt(sigma_intra + sigma_inter)
+        
+        return mu, sigma
+    
+    def educate(self, returns: np.ndarray, start_t: int, end_t: int):
+        """成績の悪いTraderを教育"""
+        # 各Traderの累積リターンを計算
+        trader_returns = []
+        
+        for trader in self.traders:
+            cumulative_return = 0
+            for t in range(start_t, end_t):
+                pred, _ = trader.predict_with_uncertainty(returns, t)
+                actual = returns[:, t+1] if t+1 < returns.shape[1] else returns[:, t]
+                cumulative_return += np.mean(np.sign(pred) * actual)
+            trader_returns.append(cumulative_return)
+        
+        # 下位Q%のTraderを特定
+        threshold = np.percentile(trader_returns, self.Q * 100)
+        bad_traders = [i for i, r in enumerate(trader_returns) if r <= threshold]
+        
+        # 教育（重みの更新）
+        for i in bad_traders:
+            # 訓練データの準備
+            X_list = []
+            y_list = []
+            
+            for t in range(start_t, min(end_t, returns.shape[1]-1)):
+                features = self.traders[i].get_features(returns, t)
+                target = returns[0, t+1]  # 簡単のため最初の銘柄のみ
+                
+                if np.any(features != 0):
+                    X_list.append(features)
+                    y_list.append(target)
+            
+            if len(X_list) > 0:
+                X = np.array(X_list)
+                y = np.array(y_list)
+                self.traders[i].update_weights_map(X, y)
+    
+    def fire_and_hire(self, returns: np.ndarray, start_t: int, end_t: int):
+        """成績の悪いTraderを解雇し、新しいTraderを採用"""
+        # 各Traderの累積リターンを計算
+        trader_returns = []
+        
+        for trader in self.traders:
+            cumulative_return = 0
+            for t in range(start_t, end_t):
+                pred, _ = trader.predict_with_uncertainty(returns, t)
+                actual = returns[:, t+1] if t+1 < returns.shape[1] else returns[:, t]
+                cumulative_return += np.mean(np.sign(pred) * actual)
+            trader_returns.append(cumulative_return)
+        
+        # 下位Q%のTraderを解雇
+        threshold = np.percentile(trader_returns, self.Q * 100)
+        good_traders = [self.traders[i] for i, r in enumerate(trader_returns) if r > threshold]
+        
+        # 新しいTraderを生成（優秀なTraderのパラメータを模倣）
+        n_new = self.n_traders - len(good_traders)
+        new_traders = []
+        
+        for _ in range(n_new):
+            # ランダムに優秀なTraderを選択
+            if good_traders:
+                template = np.random.choice(good_traders)
+                new_trader = Trader(self.M, self.n_stocks)
+                
+                # パラメータをコピー（ノイズを追加）
+                new_trader.P = template.P + np.random.randint(-1, 2, self.M)
+                new_trader.Q = template.Q + np.random.randint(-1, 2, self.M)
+                new_trader.D = np.clip(template.D + np.random.randint(-1, 2, self.M), 0, 10)
+                new_trader.F = np.clip(template.F + np.random.randint(-1, 2, self.M), 0, 10)
+                new_trader.O_idx = template.O_idx.copy()
+                new_trader.A_idx = template.A_idx.copy()
+                
+                # 銘柄番号の範囲を確認
+                new_trader.P = np.clip(new_trader.P, 0, self.n_stocks-1)
+                new_trader.Q = np.clip(new_trader.Q, 0, self.n_stocks-1)
+                
+                new_traders.append(new_trader)
+            else:
+                new_traders.append(Trader(self.M, self.n_stocks))
+        
+        self.traders = good_traders + new_traders
+
+class UTC:
+    """Uncertainty Aware Trader-Company法"""
+    def __init__(self, n_traders: int = 200, n_stocks: int = 100, M: int = 5, Q: float = 0.1):
+        self.company = Company(n_traders, n_stocks, M, Q)
+        self.n_stocks = n_stocks
+        
+    def fit(self, returns: np.ndarray, window_size: int = 100, update_interval: int = 20):
+        """モデルの学習"""
+        T = returns.shape[1]
+        
+        for t in range(window_size, T - 1, update_interval):
+            # 教育
+            self.company.educate(returns, max(0, t - window_size), t)
+            
+            # 解雇と採用
+            if t % (update_interval * 5) == 0:  # 定期的に実行
+                self.company.fire_and_hire(returns, max(0, t - window_size), t)
+    
+    def predict(self, returns: np.ndarray, t: int) -> Tuple[np.ndarray, np.ndarray]:
+        """予測と不確実性の推定"""
+        return self.company.predict_with_uncertainty(returns, t)
+    
+    def backtest(self, returns: np.ndarray, start_t: int = 100, 
+                 uncertainty_threshold: float = None) -> Dict[str, float]:
+        """バックテストの実行"""
+        T = returns.shape[1]
+        portfolio_returns = []
+        
+        for t in range(start_t, T - 1):
+            # 予測
+            pred_returns, uncertainties = self.predict(returns, t)
+            
+            # 不確実性によるフィルタリング
+            if uncertainty_threshold is not None:
+                # 不確実性が閾値以下の銘柄のみ取引
+                mask = uncertainties <= uncertainty_threshold
+                positions = np.where(mask, np.sign(pred_returns), 0)
+            else:
+                positions = np.sign(pred_returns)
+            
+            # 実現リターン
+            actual_returns = returns[:, t + 1]
+            portfolio_return = np.mean(positions * actual_returns)
+            portfolio_returns.append(portfolio_return)
+        
+        # パフォーマンス指標の計算
+        portfolio_returns = np.array(portfolio_returns)
+        
+        annual_return = np.mean(portfolio_returns) * 250
+        annual_risk = np.std(portfolio_returns) * np.sqrt(250)
+        sharpe_ratio = annual_return / annual_risk if annual_risk > 0 else 0
+        
+        # 最大ドローダウン
+        cumulative_returns = np.cumprod(1 + portfolio_returns)
+        running_max = np.maximum.accumulate(cumulative_returns)
+        drawdown = (cumulative_returns - running_max) / running_max
+        max_drawdown = np.min(drawdown)
+        
+        return {
+            'annual_return': annual_return,
+            'annual_risk': annual_risk,
+            'sharpe_ratio': sharpe_ratio,
+            'max_drawdown': max_drawdown,
+            'calmar_ratio': annual_return / abs(max_drawdown) if max_drawdown != 0 else 0
+        }
+
+# 使用例
+if __name__ == "__main__":
+    # ダミーデータの生成
+    np.random.seed(42)
+    n_stocks = 10
+    n_periods = 500
+    
+    # ランダムウォークでリターンを生成
+    returns = np.random.randn(n_stocks, n_periods) * 0.02
+    
+    # UTC法の実行
+    utc = UTC(n_traders=50, n_stocks=n_stocks, M=3)
+    
+    # 学習
+    print("Training UTC model...")
+    utc.fit(returns[:, :300])
+    
+    # バックテスト
+    print("Running backtest...")
+    results = utc.backtest(returns, start_t=300)
+    
+    print("\nBacktest Results:")
+    for key, value in results.items():
+        print(f"{key}: {value:.4f}")
+```
+
+この実装には以下の主要コンポーネントが含まれています：
+
+1. **Traderクラス**: 個別の予測器を表現
+   - 特徴量の計算
+   - 予測と不確実性の推定
+   - MAP推定による重みの更新
+
+2. **Companyクラス**: 複数のTraderを管理
+   - 予測の集約
+   - Traderの教育
+   - 解雇と採用のプロセス
+
+3. **UTCクラス**: 全体的なシステム
+   - モデルの学習
+   - 予測と不確実性の推定
+   - バックテスト機能
+
+この実装は論文の基本的なアイデアを反映していますが、実際の金融データに適用する際は、さらなる最適化やパラメータ調整が必要になる場合があります。
+user: 今から貼るファイルは国債の複利のデータです
+このファイルを使ってシャープレシオを計算したいのでバックテストの部分を書き換えてください
+assistant: 国債の複利データを使用してバックテストを行うためのコードを提供させていただきたいのですが、まだデータファイルが貼られていないようです。
+
+データファイルを貼っていただければ、以下のような修正を行います：
+
+1. データの読み込み処理
+2. 国債データに適したリターン計算
+3. バックテスト関数の修正
+
+一般的な国債データ用のバックテスト関数の例を先に示しておきます：
+
+```python
+def backtest_with_bond_data(self, bond_data: pd.DataFrame, start_date: str = None, 
+                           uncertainty_threshold: float = None) -> Dict[str, float]:
+    """国債データを使用したバックテスト"""
+    
+    # データの準備（実際のデータ形式に応じて調整が必要）
+    # 複利データから日次リターンを計算
+    returns = bond_data.pct_change().dropna()
+    
+    # numpy配列に変換
+    returns_array = returns.values.T  # (n_bonds, n_periods)
+    
+    # 以下、バックテストロジック...
+```
+
+実際のデータファイルを貼っていただければ、データ形式に合わせて具体的な実装を提供いたします。
+user: これです
+assistant: 申し訳ございませんが、データファイルがまだ表示されていないようです。ファイルをアップロードしていただくか、データの内容をテキストとして貼り付けていただけますでしょうか？
+
+データファイルを共有いただければ、以下のような処理を含むバックテスト関数を作成いたします：
+
+1. データの読み込みと前処理
+2. 複利データから日次リターンへの変換
+3. UTC法を使用した予測
+4. シャープレシオを含むパフォーマンス指標の計算
+
+データ形式（CSV、Excel、JSONなど）と、含まれている列名（日付、利回り、価格など）を教えていただければ、それに合わせた実装を提供できます。
+user: 以下はアップロードしたファイルの文章を抽出したものです
+             --------
+         [[None, 'GJGC2', 'GJGC5', 'GJGC7', 'GJGC10', 'GJGC15', 'GJGC20', 'GJGC30', 'GJGC40'], [datetime.datetime(2021, 1, 12, 0, 0), -0.128, -0.114, -0.08, 0.03, 0.242, 0.414, 0.649, 0.666], [datetime.datetime(2021, 1, 13, 0, 0), -0.128, -0.119, -0.084, 0.025, 0.231, 0.405, 0.635, 0.649], [datetime.datetime(2021, 1, 14, 0, 0), -0.123, -0.104, -0.079, 0.03, 0.231, 0.41, 0.643, 0.661], [datetime.datetime(2021, 1, 15, 0, 0), -0.129, -0.104, -0.079, 0.03, 0.226, 0.414, 0.649, 0.67], [datetime.datetime(2021, 1, 18, 0, 0), -0.129, -0.098, -0.069, 0.045, 0.252, 0.438, 0.658, 0.679], [datetime.datetime(2021, 1, 19, 0, 0), -0.125, -0.108, -0.079, 0.04, 0.257, 0.443, 0.658, 0.674], [datetime.datetime(2021, 1, 20, 0, 0), -0.13, -0.114, -0.089, 0.035, 0.252, 0.447, 0.663, 0.682], [datetime.datetime(2021, 1, 21, 0, 0), -0.136, -0.119, -0.089, 0.03, 0.241, 0.432, 0.649, 0.666], [datetime.datetime(2021, 1, 22, 0, 0), -0.136, -0.115, -0.079, 0.035, 0.26, 0.447, 0.653, 0.674], [datetime.datetime(2021, 1, 25, 0, 0), -0.137, -0.119, -0.079, 0.035, 0.257, 0.447, 0.658, 0.679], [datetime.datetime(2021, 1, 26, 0, 0), -0.137, -0.119, -0.089, 0.03, 0.246, 0.432, 0.649, 0.677], [datetime.datetime(2021, 1, 27, 0, 0), -0.132, -0.113, -0.084, 0.035, 0.257, 0.442, 0.649, 0.678], [datetime.datetime(2021, 1, 28, 0, 0), -0.133, -0.113, -0.084, 0.035, 0.252, 0.442, 0.647, 0.67], [datetime.datetime(2021, 1, 29, 0, 0), -0.129, -0.114, -0.074, 0.05, 0.276, 0.456, 0.658, 0.683], [datetime.datetime(2021, 2, 1, 0, 0), -0.124, -0.11, -0.069, 0.055, 0.293, 0.466, 0.667, 0.688], [datetime.datetime(2021, 2, 2, 0, 0), -0.124, -0.104, -0.069, 0.05, 0.284, 0.471, 0.667, 0.688], [datetime.datetime(2021, 2, 3, 0, 0), -0.125, -0.108, -0.069, 0.055, 0.28, 0.462, 0.667, 0.683], [datetime.datetime(2021, 2, 4, 0, 0), -0.13, -0.108, -0.065, 0.055, 0.278, 0.452, 0.658, 0.678], [datetime.datetime(2021, 2, 5, 0, 0), -0.13, -0.108, -0.059, 0.055, 0.278, 0.447, 0.653, 0.674], [datetime.datetime(2021, 2, 8, 0, 0), -0.126, -0.098, -0.044, 0.065, 0.282, 0.457, 0.667, 0.686], [datetime.datetime(2021, 2, 9, 0, 0), -0.127, -0.099, -0.044, 0.065, 0.288, 0.462, 0.672, 0.692], [datetime.datetime(2021, 2, 10, 0, 0), -0.122, -0.095, -0.044, 0.075, 0.288, 0.466, 0.667, 0.687], [datetime.datetime(2021, 2, 12, 0, 0), -0.133, -0.113, -0.06, 0.06, 0.277, 0.462, 0.667, 0.687], [datetime.datetime(2021, 2, 15, 0, 0), -0.129, -0.103, -0.045, 0.075, 0.293, 0.476, 0.677, 0.692], [datetime.datetime(2021, 2, 16, 0, 0), -0.129, -0.099, -0.045, 0.075, 0.293, 0.476, 0.677, 0.692], [datetime.datetime(2021, 2, 17, 0, 0), -0.119, -0.079, -0.022, 0.095, 0.319, 0.49, 0.686, 0.7], [datetime.datetime(2021, 2, 18, 0, 0), -0.124, -0.083, -0.029, 0.09, 0.313, 0.485, 0.677, 0.692], [datetime.datetime(2021, 2, 19, 0, 0), -0.12, -0.079, -0.017, 0.1, 0.324, 0.495, 0.678, 0.696], [datetime.datetime(2021, 2, 22, 0, 0), -0.11, -0.069, -0.004, 0.115, 0.339, 0.519, 0.695, 0.713], [datetime.datetime(2021, 2, 24, 0, 0), -0.111, -0.069, -0.008, 0.115, 0.344, 0.528, 0.709, 0.726], [datetime.datetime(2021, 2, 25, 0, 0), -0.101, -0.053, 0.01, 0.14, 0.365, 0.547, 0.741, 0.76], [datetime.datetime(2021, 2, 26, 0, 0), -0.117, -0.053, 0.036, 0.159, 0.38, 0.552, 0.749, 0.772], [datetime.datetime(2021, 3, 1, 0, 0), -0.119, -0.064, 0.019, 0.15, 0.359, 0.528, 0.723, 0.748], [datetime.datetime(2021, 3, 2, 0, 0), -0.124, -0.078, -0.009, 0.125, 0.334, 0.505, 0.704, 0.726], [datetime.datetime(2021, 3, 3, 0, 0), -0.115, -0.074, -0.009, 0.115, 0.318, 0.485, 0.676, 0.696], [datetime.datetime(2021, 3, 4, 0, 0), -0.12, -0.068, 0.0001, 0.134, 0.344, 0.514, 0.709, 0.722], [datetime.datetime(2021, 3, 5, 0, 0), -0.13, -0.093, -0.044, 0.085, 0.293, 0.471, 0.672, 0.687], [datetime.datetime(2021, 3, 8, 0, 0), -0.121, -0.075, -0.009, 0.11, 0.313, 0.485, 0.681, 0.696], [datetime.datetime(2021, 3, 9, 0, 0), -0.117, -0.064, -0.003, 0.125, 0.334, 0.509, 0.7, 0.713], [datetime.datetime(2021, 3, 10, 0, 0), -0.117, -0.069, -0.009, 0.12, 0.329, 0.509, 0.691, 0.705], [datetime.datetime(2021, 3, 11, 0, 0), -0.122, -0.079, -0.023, 0.1, 0.308, 0.48, 0.654, 0.67], [datetime.datetime(2021, 3, 12, 0, 0), -0.128, -0.079, -0.023, 0.11, 0.319, 0.49, 0.668, 0.679], [datetime.datetime(2021, 3, 15, 0, 0), -0.139, -0.088, -0.023, 0.105, 0.318, 0.49, 0.677, 0.692], [datetime.datetime(2021, 3, 16, 0, 0), -0.149, -0.098, -0.033, 0.095, 0.303, 0.48, 0.668, 0.683], [datetime.datetime(2021, 3, 17, 0, 0), -0.144, -0.094, -0.033, 0.09, 0.301, 0.48, 0.663, 0.679], [datetime.datetime(2021, 3, 18, 0, 0), -0.14, -0.094, -0.029, 0.1, 0.308, 0.485, 0.663, 0.679], [datetime.datetime(2021, 3, 19, 0, 0), -0.135, -0.084, -0.019, 0.11, 0.324, 0.504, 0.672, 0.687], [datetime.datetime(2021, 3, 22, 0, 0), -0.141, -0.099, -0.044, 0.075, 0.282, 0.461, 0.635, 0.657], [datetime.datetime(2021, 3, 23, 0, 0), -0.136, -0.093, -0.042, 0.075, 0.275, 0.447, 0.626, 0.653], [datetime.datetime(2021, 3, 24, 0, 0), -0.142, -0.103, -0.058, 0.066, 0.262, 0.44, 0.626, 0.657], [datetime.datetime(2021, 3, 25, 0, 0), -0.132, -0.099, -0.05, 0.08, 0.283, 0.457, 0.635, 0.654], [datetime.datetime(2021, 3, 26, 0, 0), -0.137, -0.104, -0.052, 0.075, 0.277, 0.457, 0.654, 0.67], [datetime.datetime(2021, 3, 29, 0, 0), -0.138, -0.104, -0.063, 0.065, 0.267, 0.447, 0.635, 0.653], [datetime.datetime(2021, 3, 30, 0, 0), -0.144, -0.098, -0.04, 0.085, 0.283, 0.457, 0.644, 0.666], [datetime.datetime(2021, 3, 31, 0, 0), -0.129, -0.094, -0.034, 0.09, 0.298, 0.476, 0.668, 0.688], [datetime.datetime(2021, 4, 1, 0, 0), -0.124, -0.083, -0.014, 0.11, 0.318, 0.495, 0.695, 0.713], [datetime.datetime(2021, 4, 2, 0, 0), -0.124, -0.084, -0.019, 0.115, 0.313, 0.49, 0.695, 0.713], [datetime.datetime(2021, 4, 5, 0, 0), -0.12, -0.084, -0.009, 0.115, 0.317, 0.49, 0.695, 0.718], [datetime.datetime(2021, 4, 6, 0, 0), -0.12, -0.088, -0.023, 0.105, 0.307, 0.476, 0.677, 0.7], [datetime.datetime(2021, 4, 7, 0, 0), -0.12, -0.095, -0.028, 0.095, 0.297, 0.456, 0.653, 0.674], [datetime.datetime(2021, 4, 8, 0, 0), -0.126, -0.103, -0.029, 0.095, 0.297, 0.466, 0.672, 0.692], [datetime.datetime(2021, 4, 9, 0, 0), -0.126, -0.093, -0.024, 0.1, 0.307, 0.471, 0.677, 0.692], [datetime.datetime(2021, 4, 12, 0, 0), -0.126, -0.093, -0.025, 0.105, 0.307, 0.481, 0.681, 0.692], [datetime.datetime(2021, 4, 13, 0, 0), -0.132, -0.1, -0.023, 0.1, 0.302, 0.471, 0.672, 0.684], [datetime.datetime(2021, 4, 14, 0, 0), -0.132, -0.104, -0.038, 0.085, 0.287, 0.456, 0.649, 0.666], [datetime.datetime(2021, 4, 15, 0, 0), -0.132, -0.1, -0.034, 0.085, 0.287, 0.456, 0.653, 0.667], [datetime.datetime(2021, 4, 16, 0, 0), -0.132, -0.104, -0.034, 0.085, 0.287, 0.452, 0.653, 0.67], [datetime.datetime(2021, 4, 19, 0, 0), -0.133, -0.098, -0.039, 0.08, 0.282, 0.447, 0.653, 0.67], [datetime.datetime(2021, 4, 20, 0, 0), -0.128, -0.098, -0.037, 0.08, 0.282, 0.437, 0.644, 0.658], [datetime.datetime(2021, 4, 21, 0, 0), -0.133, -0.104, -0.053, 0.07, 0.267, 0.432, 0.63, 0.648], [datetime.datetime(2021, 4, 22, 0, 0), -0.133, -0.108, -0.058, 0.065, 0.263, 0.432, 0.635, 0.653], [datetime.datetime(2021, 4, 23, 0, 0), -0.133, -0.108, -0.054, 0.065, 0.257, 0.432, 0.64, 0.657], [datetime.datetime(2021, 4, 26, 0, 0), -0.134, -0.104, -0.047, 0.07, 0.263, 0.437, 0.649, 0.666], [datetime.datetime(2021, 4, 27, 0, 0), -0.134, -0.104, -0.043, 0.08, 0.267, 0.447, 0.644, 0.661], [datetime.datetime(2021, 4, 28, 0, 0), -0.134, -0.094, -0.034, 0.09, 0.282, 0.456, 0.653, 0.675], [datetime.datetime(2021, 4, 30, 0, 0), -0.129, -0.094, -0.034, 0.09, 0.277, 0.456, 0.658, 0.679], [datetime.datetime(2021, 5, 6, 0, 0), -0.125, -0.095, -0.04, 0.085, 0.272, 0.452, 0.653, 0.679], [datetime.datetime(2021, 5, 7, 0, 0), -0.13, -0.099, -0.044, 0.08, 0.272, 0.452, 0.653, 0.679], [datetime.datetime(2021, 5, 10, 0, 0), -0.131, -0.095, -0.038, 0.08, 0.272, 0.447, 0.649, 0.671], [datetime.datetime(2021, 5, 11, 0, 0), -0.131, -0.099, -0.044, 0.07, 0.262, 0.437, 0.639, 0.666], [datetime.datetime(2021, 5, 12, 0, 0), -0.126, -0.093, -0.039, 0.075, 0.268, 0.437, 0.639, 0.662], [datetime.datetime(2021, 5, 13, 0, 0), -0.126, -0.089, -0.023, 0.09, 0.282, 0.46, 0.671, 0.692], [datetime.datetime(2021, 5, 14, 0, 0), -0.127, -0.099, -0.035, 0.08, 0.272, 0.442, 0.654, 0.679], [datetime.datetime(2021, 5, 17, 0, 0), -0.127, -0.1, -0.039, 0.075, 0.267, 0.441, 0.651, 0.678], [datetime.datetime(2021, 5, 18, 0, 0), -0.127, -0.1, -0.039, 0.075, 0.267, 0.442, 0.657, 0.682], [datetime.datetime(2021, 5, 19, 0, 0), -0.128, -0.1, -0.045, 0.07, 0.266, 0.441, 0.658, 0.683], [datetime.datetime(2021, 5, 20, 0, 0), -0.128, -0.094, -0.033, 0.08, 0.272, 0.447, 0.667, 0.692], [datetime.datetime(2021, 5, 21, 0, 0), -0.128, -0.094, -0.039, 0.078, 0.272, 0.451, 0.677, 0.7], [datetime.datetime(2021, 5, 24, 0, 0), -0.129, -0.098, -0.043, 0.075, 0.267, 0.447, 0.672, 0.7], [datetime.datetime(2021, 5, 25, 0, 0), -0.129, -0.098, -0.049, 0.07, 0.262, 0.442, 0.672, 0.7], [datetime.datetime(2021, 5, 26, 0, 0), -0.129, -0.098, -0.049, 0.07, 0.262, 0.442, 0.672, 0.7], [datetime.datetime(2021, 5, 27, 0, 0), -0.134, -0.104, -0.053, 0.07, 0.262, 0.442, 0.667, 0.701], [datetime.datetime(2021, 5, 28, 0, 0), -0.134, -0.094, -0.039, 0.08, 0.272, 0.452, 0.672, 0.709], [datetime.datetime(2021, 5, 31, 0, 0), -0.13, -0.098, -0.042, 0.075, 0.267, 0.447, 0.672, 0.709], [datetime.datetime(2021, 6, 1, 0, 0), -0.124, -0.098, -0.044, 0.075, 0.267, 0.447, 0.681, 0.717], [datetime.datetime(2021, 6, 2, 0, 0), -0.124, -0.098, -0.044, 0.075, 0.273, 0.457, 0.689, 0.722], [datetime.datetime(2021, 6, 3, 0, 0), -0.12, -0.099, -0.044, 0.08, 0.277, 0.457, 0.686, 0.717], [datetime.datetime(2021, 6, 4, 0, 0), -0.12, -0.099, -0.038, 0.082, 0.282, 0.457, 0.691, 0.722], [datetime.datetime(2021, 6, 7, 0, 0), -0.12, -0.099, -0.048, 0.075, 0.277, 0.457, 0.691, 0.722], [datetime.datetime(2021, 6, 8, 0, 0), -0.121, -0.103, -0.054, 0.07, 0.27, 0.446, 0.681, 0.717], [datetime.datetime(2021, 6, 9, 0, 0), -0.121, -0.103, -0.064, 0.065, 0.257, 0.432, 0.668, 0.708], [datetime.datetime(2021, 6, 10, 0, 0), -0.126, -0.114, -0.08, 0.045, 0.242, 0.422, 0.661, 0.704], [datetime.datetime(2021, 6, 11, 0, 0), -0.126, -0.12, -0.09, 0.03, 0.227, 0.412, 0.658, 0.702], [datetime.datetime(2021, 6, 14, 0, 0), -0.127, -0.118, -0.084, 0.035, 0.233, 0.418, 0.658, 0.704], [datetime.datetime(2021, 6, 15, 0, 0), -0.127, -0.114, -0.079, 0.045, 0.242, 0.432, 0.672, 0.717], [datetime.datetime(2021, 6, 16, 0, 0), -0.127, -0.11, -0.076, 0.045, 0.248, 0.442, 0.681, 0.735], [datetime.datetime(2021, 6, 17, 0, 0), -0.122, -0.099, -0.058, 0.06, 0.257, 0.447, 0.686, 0.74], [datetime.datetime(2021, 6, 18, 0, 0), -0.122, -0.104, -0.065, 0.055, 0.248, 0.432, 0.672, 0.73], [datetime.datetime(2021, 6, 21, 0, 0), -0.118, -0.108, -0.079, 0.04, 0.237, 0.428, 0.672, 0.735], [datetime.datetime(2021, 6, 22, 0, 0), -0.113, -0.1, -0.069, 0.05, 0.247, 0.432, 0.672, 0.735], [datetime.datetime(2021, 6, 23, 0, 0), -0.113, -0.1, -0.069, 0.05, 0.247, 0.428, 0.663, 0.726], [datetime.datetime(2021, 6, 24, 0, 0), -0.113, -0.098, -0.064, 0.05, 0.243, 0.425, 0.668, 0.726], [datetime.datetime(2021, 6, 25, 0, 0), -0.113, -0.104, -0.069, 0.045, 0.238, 0.428, 0.677, 0.74], [datetime.datetime(2021, 6, 28, 0, 0), -0.114, -0.098, -0.064, 0.055, 0.242, 0.432, 0.686, 0.749], [datetime.datetime(2021, 6, 29, 0, 0), -0.114, -0.098, -0.07, 0.055, 0.245, 0.437, 0.686, 0.749], [datetime.datetime(2021, 6, 30, 0, 0), -0.114, -0.104, -0.07, 0.055, 0.251, 0.442, 0.686, 0.758], [datetime.datetime(2021, 7, 1, 0, 0), -0.119, -0.113, -0.084, 0.036, 0.232, 0.428, 0.677, 0.744], [datetime.datetime(2021, 7, 2, 0, 0), -0.119, -0.113, -0.09, 0.04, 0.223, 0.418, 0.668, 0.731], [datetime.datetime(2021, 7, 5, 0, 0), -0.115, -0.119, -0.101, 0.03, 0.225, 0.413, 0.672, 0.735], [datetime.datetime(2021, 7, 6, 0, 0), -0.11, -0.109, -0.09, 0.04, 0.229, 0.418, 0.668, 0.735], [datetime.datetime(2021, 7, 7, 0, 0), -0.11, -0.113, -0.11, 0.03, 0.225, 0.413, 0.672, 0.735], [datetime.datetime(2021, 7, 8, 0, 0), -0.115, -0.124, -0.125, 0.025, 0.219, 0.408, 0.656, 0.717], [datetime.datetime(2021, 7, 9, 0, 0), -0.116, -0.119, -0.111, 0.026, 0.229, 0.417, 0.667, 0.731], [datetime.datetime(2021, 7, 12, 0, 0), -0.116, -0.12, -0.11, 0.025, 0.225, 0.413, 0.667, 0.731], [datetime.datetime(2021, 7, 13, 0, 0), -0.121, -0.12, -0.114, 0.02, 0.219, 0.403, 0.667, 0.735], [datetime.datetime(2021, 7, 14, 0, 0), -0.127, -0.124, -0.12, 0.015, 0.21, 0.4, 0.667, 0.735], [datetime.datetime(2021, 7, 15, 0, 0), -0.127, -0.128, -0.125, 0.01, 0.2, 0.38, 0.64, 0.713], [datetime.datetime(2021, 7, 16, 0, 0), -0.127, -0.124, -0.116, 0.015, 0.21, 0.395, 0.644, 0.714], [datetime.datetime(2021, 7, 19, 0, 0), -0.133, -0.128, -0.124, 0.014, 0.208, 0.395, 0.649, 0.717], [datetime.datetime(2021, 7, 20, 0, 0), -0.133, -0.134, -0.135, 0.01, 0.2, 0.39, 0.642, 0.713], [datetime.datetime(2021, 7, 21, 0, 0), -0.133, -0.134, -0.13, 0.01, 0.21, 0.4, 0.658, 0.731], [datetime.datetime(2021, 7, 26, 0, 0), -0.134, -0.135, -0.13, 0.01, 0.205, 0.395, 0.649, 0.727], [datetime.datetime(2021, 7, 27, 0, 0), -0.129, -0.129, -0.119, 0.015, 0.214, 0.4, 0.653, 0.735], [datetime.datetime(2021, 7, 28, 0, 0), -0.129, -0.129, -0.125, 0.011, 0.21, 0.395, 0.644, 0.727], [datetime.datetime(2021, 7, 29, 0, 0), -0.129, -0.129, -0.12, 0.016, 0.21, 0.391, 0.64, 0.718], [datetime.datetime(2021, 7, 30, 0, 0), -0.124, -0.123, -0.12, 0.016, 0.2, 0.39, 0.639, 0.716], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None], [None, None, None, None, None, None, None, None, None]]
+assistant: ファイル内容を理解しました
+user: これです
+assistant: 国債の複利データを使用したUTC法のバックテスト実装を以下に示します：
+
+```python
+import numpy as np
+import pandas as pd
+from datetime import datetime
+from typing import Dict, Tuple, List
+import warnings
+warnings.filterwarnings('ignore')
+
+# 先ほどのUTCクラスの実装をそのまま使用（Trader, Company, UTCクラス）
+
+class UTCBondBacktest(UTC):
+    """国債データ用のUTC法バックテストクラス"""
+    
+    def prepare_bond_data(self, data: List[List]) -> pd.DataFrame:
+        """国債データの前処理"""
+        # データをDataFrameに変換
+        columns = data[0][1:]  # GJGC2, GJGC5, etc.
+        dates = []
+        values = []
+        
+        for row in data[1:]:
+            if row[0] is not None:  # 有効なデータのみ
+                dates.append(row[0])
+                values.append(row[1:])
+        
+        df = pd.DataFrame(values, index=pd.DatetimeIndex(dates), columns=columns)
+        df = df.astype(float)
+        
+        # 利回りデータから価格変化率を計算
+        # 国債利回りの変化を収益率として扱う
+        returns = df.diff() / 100  # 利回り変化をパーセンテージに
+        returns = returns.dropna()
+        
+        return df, returns
+    
+    def backtest_with_bonds(self, bond_data: List[List], 
+                           train_ratio: float = 0.6,
+                           uncertainty_threshold_percentile: float = 50,
+                           rebalance_frequency: int = 20) -> Dict[str, float]:
+        """
+        国債データでのバックテスト
+        
+        Parameters:
+        -----------
+        bond_data : List[List]
+            国債の複利データ
+        train_ratio : float
+            訓練データの割合
+        uncertainty_threshold_percentile : float
+            不確実性の閾値パーセンタイル（0-100）
+        rebalance_frequency : int
+            リバランス頻度（日数）
+        """
+        
+        # データの準備
+        yields_df, returns_df = self.prepare_bond_data(bond_data)
+        
+        # numpy配列に変換（転置して銘柄×時間の形式に）
+        returns_array = returns_df.values.T
+        n_bonds, n_periods = returns_array.shape
+        
+        # 訓練期間とテスト期間の分割
+        train_size = int(n_periods * train_ratio)
+        
+        # モデルの初期化
+        self.n_stocks = n_bonds
+        self.company = Company(n_traders=50, n_stocks=n_bonds, M=3, Q=0.1)
+        
+        # 初期訓練
+        print(f"Training on first {train_size} periods...")
+        self.fit(returns_array[:, :train_size], window_size=50, update_interval=10)
+        
+        # バックテスト実行
+        portfolio_returns = []
+        all_predictions = []
+        all_uncertainties = []
+        positions_history = []
+        
+        for t in range(train_size, n_periods - 1):
+            # 定期的なモデル更新
+            if (t - train_size) % rebalance_frequency == 0 and t > train_size:
+                print(f"Rebalancing at period {t}...")
+                window_start = max(0, t - 100)
+                self.company.educate(returns_array, window_start, t)
+                if (t - train_size) % (rebalance_frequency * 3) == 0:
+                    self.company.fire_and_hire(returns_array, window_start, t)
+            
+            # 予測
+            pred_returns, uncertainties = self.predict(returns_array, t)
+            all_predictions.append(pred_returns)
+            all_uncertainties.append(uncertainties)
+            
+            # 不確実性の閾値を動的に設定
+            if len(all_uncertainties) > 10:
+                recent_uncertainties = np.array(all_uncertainties[-20:])
+                threshold = np.percentile(recent_uncertainties, uncertainty_threshold_percentile)
+            else:
+                threshold = np.percentile(uncertainties, uncertainty_threshold_percentile)
+            
+            # ポジションの決定
+            # 不確実性が低い銘柄のみ取引
+            mask = uncertainties <= threshold
+            positions = np.zeros(n_bonds)
+            
+            if np.any(mask):
+                # 予測リターンの符号に基づいてポジションを決定
+                positions[mask] = np.sign(pred_returns[mask])
+                
+                # ポジションの正規化（リスクパリティ的なアプローチ）
+                if np.any(positions != 0):
+                    # 不確実性の逆数で重み付け
+                    weights = np.zeros(n_bonds)
+                    weights[mask] = 1.0 / (uncertainties[mask] + 1e-6)
+                    weights = weights / np.sum(np.abs(weights)) if np.sum(np.abs(weights)) > 0 else weights
+                    positions = positions * weights
+            
+            positions_history.append(positions)
+            
+            # 実現リターン
+            actual_returns = returns_array[:, t + 1]
+            portfolio_return = np.sum(positions * actual_returns)
+            portfolio_returns.append(portfolio_return)
+        
+        # パフォーマンス指標の計算
+        portfolio_returns = np.array(portfolio_returns)
+        
+        # 累積リターン
+        cumulative_returns = np.cumprod(1 + portfolio_returns) - 1
+        
+        # 年率換算（営業日ベースで252日）
+        n_years = len(portfolio_returns) / 252
+        total_return = cumulative_returns[-1]
+        annual_return = (1 + total_return) ** (1 / n_years) - 1
+        
+        # リスク指標
+        annual_volatility = np.std(portfolio_returns) * np.sqrt(252)
+        sharpe_ratio = annual_return / annual_volatility if annual_volatility > 0 else 0
+        
+        # 最大ドローダウン
+        cumulative = np.cumprod(1 + portfolio_returns)
+        running_max = np.maximum.accumulate(cumulative)
+        drawdown = (cumulative - running_max) / running_max
+        max_drawdown = np.min(drawdown)
+        
+        # 勝率
+        win_rate = np.mean(portfolio_returns > 0)
+        
+        # 平均取引銘柄数
+        avg_positions = np.mean([np.sum(pos != 0) for pos in positions_history])
+        
+        # 結果の集計
+        results = {
+            'total_return': total_return,
+            'annual_return': annual_return,
+            'annual_volatility': annual_volatility,
+            'sharpe_ratio': sharpe_ratio,
+            'max_drawdown': max_drawdown,
+            'calmar_ratio': annual_return / abs(max_drawdown) if max_drawdown != 0 else 0,
+            'win_rate': win_rate,
+            'avg_positions': avg_positions,
+            'total_trades': len(portfolio_returns)
+        }
+        
+        # 詳細な結果も返す
+        detailed_results = {
+            'portfolio_returns': portfolio_returns,
+            'cumulative_returns': cumulative_returns,
+            'predictions': np.array(all_predictions),
+            'uncertainties': np.array(all_uncertainties),
+            'positions': np.array(positions_history),
+            'dates': returns_df.index[train_size:n_periods-1]
+        }
+        
+        return results, detailed_results
+
+# 使用例
+if __name__ == "__main__":
+    # データの読み込み（提供されたデータを使用）
+    bond_data = [[None, 'GJGC2', 'GJGC5', 'GJGC7', 'GJGC10', 'GJGC15', 'GJGC20', 'GJGC30', 'GJGC40'],
+                 [datetime(2021, 1, 12, 0, 0), -0.128, -0.114, -0.08, 0.03, 0.242, 0.414, 0.649, 0.666],
+                 # ... 他のデータ行を含める
+                ]
+    
+    # UTC法でバックテスト実行
+    utc_bond = UTCBondBacktest(n_traders=30, n_stocks=8, M=3, Q=0.1)
+    
+    print("Running UTC backtest on bond data...")
+    results, detailed_results = utc_bond.backtest_with_bonds(
+        bond_data,
+        train_ratio=0.6,
+        uncertainty_threshold_percentile=40,
+        rebalance_frequency=20
+    )
+    
+    print("\n=== Backtest Results ===")
+    print(f"Total Return: {results['total_return']:.2%}")
+    print(f"Annual Return: {results['annual_return']:.2%}")
+    print(f"Annual Volatility: {results['annual_volatility']:.2%}")
+    print(f"Sharpe Ratio: {results['sharpe_ratio']:.3f}")
+    print(f"Max Drawdown: {results['max_drawdown']:.2%}")
+    print(f"Calmar Ratio: {results['calmar_ratio']:.3f}")
+    print(f"Win Rate: {results['win_rate']:.2%}")
+    print(f"Avg Positions: {results['avg_positions']:.1f}")
+    
+    # 結果の可視化
+    import matplotlib.pyplot as plt
+    
+    fig, axes = plt.subplots(3, 1, figsize=(12, 10))
+    
+    # 累積リターン
+    axes[0].plot(detailed_results['dates'], detailed_results['cumulative_returns'])
+    axes[0].set_title('Cumulative Returns')
+    axes[0].set_ylabel('Return')
+    axes[0].grid(True)
+    
+    # 予測の不確実性の推移
+    avg_uncertainty = np.mean(detailed_results['uncertainties'], axis=1)
+    axes[1].plot(detailed_results['dates'], avg_uncertainty)
+    axes[1].set_title('Average Prediction Uncertainty')
+    axes[1].set_ylabel('Uncertainty')
+    axes[1].grid(True)
+    
+    # ポジション数の推移
+    n_positions = np.sum(detailed_results['positions'] != 0, axis=1)
+    axes[2].plot(detailed_results['dates'], n_positions)
+    axes[2].set_title('Number of Active Positions')
+    axes[2].set_ylabel('Count')
+    axes[2].grid(True)
+    
+    plt.tight_layout()
+    plt.show()
+```
+
+この実装の主な特徴：
+
+1. **国債データの前処理**：
+   - 利回りデータから変化率を計算
+   - 欠損値の処理
+
+2. **動的な不確実性閾値**：
+   - 市場環境に応じて閾値を調整
+   - 最近の不確実性レベルに基づいて設定
+
+3. **リスクパリティ的なポジションサイジング**：
+   - 不確実性の逆数で重み付け
+   - より確信度の高い予測により大きなウェイト
+
+4. **定期的なモデル更新**：
+   - リバランス頻度に基づいてモデルを再学習
+   - 市場環境の変化に対応
+
+5. **詳細なパフォーマンス指標**：
+   - シャープレシオ
+   - 最大ドローダウン
+   - カルマーレシオ
+   - 勝率など
+
+この実装により、国債の複利データを使用してUTC法の効果を検証し、不確実性を考慮した取引戦略のパフォーマンスを評価できます。
